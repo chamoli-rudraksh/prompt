@@ -1,0 +1,86 @@
+{
+  "articles": [
+    {
+      "id": "demo-article-001",
+      "title": "RBI Holds Repo Rate Steady at 6.5% Amid Inflation Concerns",
+      "summary": "The Reserve Bank of India maintained its key lending rate at 6.5% for the eighth consecutive time, citing persistent food inflation. The central bank revised its GDP growth forecast upward to 7.2% for FY2025-26.",
+      "url": "https://economictimes.indiatimes.com/rbi-policy-2025",
+      "source": "Economic Times",
+      "published_at": "2025-03-15T10:30:00Z",
+      "topics": ["banking", "economy", "policy"],
+      "why_it_matters": "As an investor, this signals continued stability in borrowing costs, impacting your equity and fixed-income portfolio decisions."
+    },
+    {
+      "id": "demo-article-002",
+      "title": "Zomato acquires quick-commerce rival Blinkit for $2.1 billion",
+      "summary": "Zomato has completed its acquisition of Blinkit in a deal valued at $2.1 billion, making it the largest quick-commerce consolidation in India. The combined entity will serve over 50 million monthly users.",
+      "url": "https://www.livemint.com/zomato-blinkit-2025",
+      "source": "LiveMint",
+      "published_at": "2025-03-14T14:20:00Z",
+      "topics": ["startups", "corporate", "markets"],
+      "why_it_matters": "This matters because the quick-commerce consolidation reshapes competitive dynamics in a sector you're tracking as a startup investor."
+    },
+    {
+      "id": "demo-article-003",
+      "title": "India's GDP Growth Accelerates to 8.4% in Q3 FY2025",
+      "summary": "India's economy grew at 8.4% in the October-December quarter, driven by strong manufacturing and services output. This positions India as the fastest-growing major economy globally.",
+      "url": "https://economictimes.indiatimes.com/gdp-q3-2025",
+      "source": "Economic Times",
+      "published_at": "2025-03-12T09:00:00Z",
+      "topics": ["economy", "markets", "policy"],
+      "why_it_matters": "As an investor, India's outperformance strengthens the case for overweighting Indian equities in your emerging market allocation."
+    },
+    {
+      "id": "demo-article-004",
+      "title": "Startup Funding in India Rebounds: $4.2 Billion Raised in Q1 2025",
+      "summary": "Indian startups raised $4.2 billion across 310 deals in Q1 2025, marking a 45% increase from the same period last year. AI and climate-tech startups led the recovery.",
+      "url": "https://www.livemint.com/startup-funding-q1-2025",
+      "source": "LiveMint",
+      "published_at": "2025-03-13T11:45:00Z",
+      "topics": ["startups", "technology", "markets"],
+      "why_it_matters": "This matters because the funding rebound signals renewed investor confidence in Indian tech, validating early-stage portfolio bets."
+    },
+    {
+      "id": "demo-article-005",
+      "title": "SEBI Tightens Rules for SME IPOs to Protect Retail Investors",
+      "summary": "SEBI has introduced stricter norms for SME IPOs including higher promoter lock-in periods and mandatory profitability track records. The new rules aim to curb the recent surge in overvalued small-cap listings.",
+      "url": "https://economictimes.indiatimes.com/sebi-sme-ipo-2025",
+      "source": "Economic Times",
+      "published_at": "2025-03-11T16:30:00Z",
+      "topics": ["markets", "policy", "corporate"],
+      "why_it_matters": "As an investor, these regulations will filter out weaker SME listings, potentially improving the quality of small-cap investment opportunities."
+    },
+    {
+      "id": "demo-article-006",
+      "title": "India's Renewable Energy Capacity Crosses 200 GW Milestone",
+      "summary": "India has achieved its target of 200 GW renewable energy capacity ahead of schedule, led by solar installations in Rajasthan and Gujarat. The government has now set a revised target of 500 GW by 2030.",
+      "url": "https://www.thehindubusinessline.com/renewable-energy-200gw",
+      "source": "The Hindu Business Line",
+      "published_at": "2025-03-10T08:15:00Z",
+      "topics": ["energy", "policy", "economy"],
+      "why_it_matters": "This matters because the energy transition creates investment opportunities in green infrastructure and clean-tech companies."
+    },
+    {
+      "id": "demo-article-007",
+      "title": "TCS Wins $1.5 Billion Deal with UK Banking Giant for AI Transformation",
+      "summary": "Tata Consultancy Services has secured its largest-ever deal worth $1.5 billion from a major UK bank for a comprehensive AI-led digital transformation spanning five years.",
+      "url": "https://economictimes.indiatimes.com/tcs-ai-deal-2025",
+      "source": "Economic Times",
+      "published_at": "2025-03-09T13:00:00Z",
+      "topics": ["technology", "corporate", "markets"],
+      "why_it_matters": "As an investor, this mega-deal validates the AI transformation thesis and signals strong demand for Indian IT services."
+    },
+    {
+      "id": "demo-article-008",
+      "title": "Government Announces Union Budget 2025: Focus on Infrastructure and AI",
+      "summary": "The Union Budget 2025-26 allocated ₹11.1 lakh crore for infrastructure, a 25% increase. A new ₹10,000 crore fund for AI startups was announced along with tax incentives for semiconductor manufacturing.",
+      "url": "https://www.ndtv.com/budget-2025-highlights",
+      "source": "NDTV Business",
+      "published_at": "2025-03-08T18:00:00Z",
+      "topics": ["policy", "economy", "technology", "startups"],
+      "why_it_matters": "This matters because the budget's AI and infra focus creates multi-year investment themes across technology and capital goods sectors."
+    }
+  ],
+  "user_name": "Demo User",
+  "persona": "investor"
+}

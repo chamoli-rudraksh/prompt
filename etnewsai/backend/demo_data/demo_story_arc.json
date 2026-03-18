@@ -1,0 +1,108 @@
+{
+  "timeline": [
+    {
+      "date": "2024-06-15",
+      "headline": "India sees record startup registrations surge",
+      "description": "Over 14,000 new startups were registered in H1 2024, a 35% increase from the previous year, signaling renewed entrepreneurial confidence.",
+      "sentiment": "positive",
+      "source": "Economic Times"
+    },
+    {
+      "date": "2024-09-10",
+      "headline": "Funding winter thaws with mega AI rounds",
+      "description": "AI-focused startups secured $2.1 billion in Q3 2024, with three unicorn rounds, marking the end of the 18-month funding drought.",
+      "sentiment": "positive",
+      "source": "LiveMint"
+    },
+    {
+      "date": "2024-11-20",
+      "headline": "Byju's crisis deepens with NCLT proceedings",
+      "description": "Once India's most valuable startup, Byju's faced insolvency proceedings at NCLT, raising concerns about corporate governance in the ecosystem.",
+      "sentiment": "negative",
+      "source": "NDTV Business"
+    },
+    {
+      "date": "2025-01-05",
+      "headline": "Government launches National AI Mission startup fund",
+      "description": "The government announced a ₹10,000 crore fund specifically for AI startups, with a focus on domestic LLM development and applied AI solutions.",
+      "sentiment": "positive",
+      "source": "The Hindu Business Line"
+    },
+    {
+      "date": "2025-02-14",
+      "headline": "Quick-commerce consolidation wave begins across India",
+      "description": "Zomato-Blinkit merger triggered consolidation across quick-commerce, with smaller players seeking acquirers or pivoting to profitability.",
+      "sentiment": "neutral",
+      "source": "LiveMint"
+    },
+    {
+      "date": "2025-03-10",
+      "headline": "Q1 2025 funding rebounds with 45% growth",
+      "description": "Indian startups raised $4.2 billion in Q1 2025 across 310 deals, with AI and climate-tech leading the recovery.",
+      "sentiment": "positive",
+      "source": "LiveMint"
+    }
+  ],
+  "players": [
+    {
+      "name": "Zomato",
+      "type": "company",
+      "role": "Leading quick-commerce consolidation through the Blinkit acquisition, reshaping the delivery landscape",
+      "connections": ["Blinkit", "Swiggy", "SEBI"]
+    },
+    {
+      "name": "DPIIT",
+      "type": "government",
+      "role": "Government body driving the Startup India program and new AI mission funding",
+      "connections": ["Ministry of Finance", "NASSCOM"]
+    },
+    {
+      "name": "Sequoia Capital India",
+      "type": "company",
+      "role": "Major VC firm leading several mega-rounds in the AI startup space",
+      "connections": ["Accel", "Tiger Global"]
+    },
+    {
+      "name": "Byju's",
+      "type": "company",
+      "role": "Once-dominant edtech giant now in NCLT proceedings, serving as a cautionary tale for corporate governance",
+      "connections": ["NCLT", "Tiger Global"]
+    },
+    {
+      "name": "SEBI",
+      "type": "institution",
+      "role": "Regulator tightening IPO norms to protect retail investors from overvalued startup listings",
+      "connections": ["Zomato", "Ministry of Finance"]
+    },
+    {
+      "name": "Ministry of Finance",
+      "type": "government",
+      "role": "Shaping fiscal policy including AI startup fund allocation and tax incentives for tech",
+      "connections": ["DPIIT", "SEBI", "RBI"]
+    },
+    {
+      "name": "NASSCOM",
+      "type": "institution",
+      "role": "Industry body advocating for startup-friendly policies and tracking ecosystem metrics",
+      "connections": ["DPIIT", "TCS"]
+    }
+  ],
+  "sentiment_over_time": [
+    {"date": "2024-06-15", "score": 0.75, "label": "positive"},
+    {"date": "2024-07-20", "score": 0.70, "label": "positive"},
+    {"date": "2024-09-10", "score": 0.80, "label": "positive"},
+    {"date": "2024-11-20", "score": 0.35, "label": "negative"},
+    {"date": "2024-12-15", "score": 0.45, "label": "neutral"},
+    {"date": "2025-01-05", "score": 0.72, "label": "positive"},
+    {"date": "2025-02-14", "score": 0.55, "label": "neutral"},
+    {"date": "2025-03-10", "score": 0.78, "label": "positive"}
+  ],
+  "contrarian_view": "While the funding rebound narrative dominates headlines, the reality is that 80% of the new funding is concentrated in just three sectors — AI, quick-commerce, and fintech — leaving deep-tech, healthcare, and agritech startups still starved for capital. The ecosystem recovery may be more narrow than broad, and the AI startup boom carries echoes of the crypto hype cycle that preceded the 2022-23 funding winter.",
+  "summary": "India's startup ecosystem has traversed a dramatic arc from the depths of a funding winter through a cautious recovery to what now appears to be a full-fledged rebound. The journey has been marked by painful corrections — most notably the Byju's collapse — that forced a reckoning with corporate governance and unit economics. Government intervention through the National AI Mission and supportive fiscal policy has catalyzed renewed investor confidence, while the quick-commerce consolidation led by Zomato-Blinkit signals market maturation. Q1 2025's $4.2 billion funding milestone, led by AI and climate-tech startups, suggests the ecosystem has not only recovered but is evolving toward higher-quality, more sustainable growth patterns.",
+  "what_to_watch": [
+    "Whether the AI startup funding boom translates to sustainable revenue growth or becomes another hype cycle",
+    "SEBI's evolving stance on startup IPOs and its impact on late-stage funding and exit opportunities",
+    "The outcome of Byju's NCLT proceedings and its precedent-setting implications for startup governance in India"
+  ],
+  "articles": []
+}
