@@ -18,7 +18,7 @@ from database import (
     append_message, get_articles_by_ids,
 )
 from ingestion import search_articles
-from llm import ask_llm, build_rag_prompt, LLMUnavailableError
+from llm import ask_llm, build_rag_prompt
 
 router = APIRouter(tags=["navigator"])
 logger = logging.getLogger(__name__)
@@ -94,11 +94,6 @@ async def create_briefing(req: BriefingRequest):
             sources=sources,
         )
 
-    except LLMUnavailableError:
-        raise HTTPException(
-            status_code=503,
-            detail=json.dumps({"error": "LLM unavailable", "fallback": True}),
-        )
     except Exception as e:
         logger.error(f"Briefing generation error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate briefing: {str(e)}")
@@ -152,9 +147,6 @@ async def chat_follow_up(req: ChatRequest):
                     # Save complete response to conversation
                     complete = "".join(full_response)
                     await append_message(req.conversation_id, "assistant", complete)
-                except LLMUnavailableError:
-                    yield f"data: {json.dumps({'error': 'LLM unavailable'})}\n\n"
-                    yield "data: [DONE]\n\n"
                 except Exception as e:
                     logger.error(f"Streaming error: {e}")
                     yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -180,11 +172,6 @@ async def chat_follow_up(req: ChatRequest):
             ]
             return ChatResponse(response=response_text, sources_used=sources_used)
 
-    except LLMUnavailableError:
-        raise HTTPException(
-            status_code=503,
-            detail=json.dumps({"error": "LLM unavailable", "fallback": True}),
-        )
     except HTTPException:
         raise
     except Exception as e:

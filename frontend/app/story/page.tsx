@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import StoryTimeline from '@/components/StoryTimeline';
 import PlayerGraph from '@/components/PlayerGraph';
 import SentimentChart from '@/components/SentimentChart';
-import { getStoryArc, getDemoStoryArc } from '@/lib/api';
+import { getStoryArc } from '@/lib/api';
 import { StoryArcResponse } from '@/types';
 
 export default function StoryPage() {
@@ -12,12 +12,6 @@ export default function StoryPage() {
   const [storyData, setStoryData] = useState<StoryArcResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isDemo, setIsDemo] = useState(false);
-
-  useEffect(() => {
-    const demo = localStorage.getItem('etnewsai_demo');
-    setIsDemo(demo === 'true');
-  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,27 +27,7 @@ export default function StoryPage() {
       setStoryData(data);
     } catch (err: any) {
       console.error('Story arc error:', err);
-      try {
-        const data = await getDemoStoryArc();
-        setStoryData(data);
-        setError('Running in preview mode — showing demo story arc');
-      } catch {
-        setError('Failed to generate story arc. Please check backend connection.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadDemo = async () => {
-    setLoading(true);
-    setError('');
-    setQuery('India startup ecosystem 2025');
-    try {
-      const data = await getDemoStoryArc();
-      setStoryData(data);
-    } catch {
-      setError('Failed to load demo data.');
+      setError('Failed to generate story arc. Please check backend connection.');
     } finally {
       setLoading(false);
     }
@@ -87,12 +61,6 @@ export default function StoryPage() {
         </button>
       </form>
 
-      {isDemo && !storyData && !loading && (
-        <button onClick={loadDemo} className="demo-load-btn">
-          Load demo story: &quot;India startup ecosystem 2025&quot;
-        </button>
-      )}
-
       {error && (
         <div className="story-banner">
           <span>⚠️ {error}</span>
@@ -104,7 +72,7 @@ export default function StoryPage() {
           <div className="loading-dots">
             <span></span><span></span><span></span>
           </div>
-          <p>Analyzing story arc across multiple sources...</p>
+          <p>Analyzing story arc across all sources...</p>
         </div>
       )}
 

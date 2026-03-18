@@ -1,42 +1,22 @@
-"""
-Scheduler — APScheduler background job to refresh news every 30 minutes.
-"""
-
-import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from ingestion import ingest_all_feeds
+import logging
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
-
 def start_scheduler():
-    """
-    Start the background scheduler.
-    Runs ingest_all_feeds() immediately on first start, then every 30 minutes.
-    """
     scheduler.add_job(
-        _run_ingestion,
-        "interval",
-        minutes=30,
+        ingest_all_feeds,
+        trigger=IntervalTrigger(minutes=30),
         id="news_ingestion",
+        name="Ingest live news every 30 minutes",
         replace_existing=True,
+        max_instances=1,
+        misfire_grace_time=120,
     )
     scheduler.start()
-    logger.info("Scheduler started: news ingestion every 30 minutes")
-
-
-async def _run_ingestion():
-    """Wrapper to run ingestion with error handling."""
-    try:
-        count = await ingest_all_feeds()
-        logger.info(f"Scheduled ingestion complete: {count} new articles")
-    except Exception as e:
-        logger.error(f"Scheduled ingestion failed: {e}")
-
-
-async def run_initial_ingestion():
-    """Run the first ingestion immediately on startup."""
-    logger.info("Running initial news ingestion...")
-    await _run_ingestion()
+    logger.info("Scheduler started — news refreshes every 30 minutes")

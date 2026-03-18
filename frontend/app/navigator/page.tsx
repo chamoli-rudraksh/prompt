@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import BriefingPanel from '@/components/BriefingPanel';
 import ChatPanel from '@/components/ChatPanel';
-import { createBriefing, getDemoBriefing } from '@/lib/api';
+import { createBriefing } from '@/lib/api';
 import { SourceInfo } from '@/types';
 
 export default function NavigatorPage() {
@@ -13,12 +13,6 @@ export default function NavigatorPage() {
   const [conversationId, setConversationId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isDemo, setIsDemo] = useState(false);
-
-  useEffect(() => {
-    const demo = localStorage.getItem('etnewsai_demo');
-    setIsDemo(demo === 'true');
-  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,32 +32,7 @@ export default function NavigatorPage() {
       setConversationId(data.conversation_id);
     } catch (err: any) {
       console.error('Briefing error:', err);
-      // Try demo data
-      try {
-        const data = await getDemoBriefing();
-        setBriefingText(data.briefing_text);
-        setSources(data.sources);
-        setConversationId(data.conversation_id);
-        setError('Running in preview mode — showing demo briefing');
-      } catch {
-        setError('Failed to generate briefing. Please check backend connection.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadDemo = async () => {
-    setLoading(true);
-    setError('');
-    setQuery('RBI monetary policy 2025');
-    try {
-      const data = await getDemoBriefing();
-      setBriefingText(data.briefing_text);
-      setSources(data.sources);
-      setConversationId(data.conversation_id);
-    } catch {
-      setError('Failed to load demo data.');
+      setError('Failed to generate briefing. Please check backend connection.');
     } finally {
       setLoading(false);
     }
@@ -97,15 +66,18 @@ export default function NavigatorPage() {
         </button>
       </form>
 
-      {isDemo && !briefingText && !loading && (
-        <button onClick={loadDemo} className="demo-load-btn">
-          Load demo briefing: &quot;RBI monetary policy 2025&quot;
-        </button>
-      )}
-
       {error && (
         <div className="navigator-banner">
           <span>⚠️ {error}</span>
+        </div>
+      )}
+
+      {loading && (
+        <div className="navigator-loading-state">
+          <div className="loading-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <p>Gathering sources and building your briefing...</p>
         </div>
       )}
 

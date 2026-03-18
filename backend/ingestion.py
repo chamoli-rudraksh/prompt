@@ -1,316 +1,229 @@
-"""
-News Ingestion Pipeline — RSS fetching, scraping, summarization, embedding, storage.
-Provides ingest_all_feeds() and search_articles().
-"""
-
-import os
-import json
-import uuid
-import asyncio
-import logging
-from datetime import datetime
-
 import feedparser
-import requests
+import httpx
+import asyncio
+import uuid
+import json
+import os
+import hashlib
+from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
+from database import save_article, article_exists, mark_embedded
+from embeddings import get_embedding
+from llm import ask_llm
 import chromadb
-from dotenv import load_dotenv
 
-from llm import ask_llm, LLMUnavailableError
-from embeddings import embed_text, embed_texts
-from database import upsert_article, get_article_by_url, mark_article_embedded, get_articles_by_ids
+CHROMA = chromadb.PersistentClient(path=os.getenv("CHROMA_PATH", "./chroma_store"))
+COLLECTION = CHROMA.get_or_create_collection("articles")
 
-load_dotenv()
-logger = logging.getLogger(__name__)
+CUTOFF_HOURS = 24
 
-CHROMA_PATH = os.getenv("CHROMA_PATH", "./chroma_store")
+# Global semaphore to limit concurrent LLM calls (Ollama handles 1 at a time)
+_llm_semaphore = asyncio.Semaphore(1)
 
 RSS_FEEDS = [
-    {"url": "https://economictimes.indiatimes.com/rssfeedstopstories.cms", "source": "Economic Times"},
-    {"url": "https://www.livemint.com/rss/news", "source": "LiveMint"},
-    {"url": "https://www.thehindubusinessline.com/feeder/default.rss", "source": "The Hindu Business Line"},
-    {"url": "https://feeds.feedburner.com/NDTV-Business", "source": "NDTV Business"},
-    {"url": "https://timesofindia.indiatimes.com/rssfeeds/1898055.cms", "source": "Times of India"},
+    "https://economictimes.indiatimes.com/rssfeedstopstories.cms",
+    "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
+    "https://www.livemint.com/rss/news",
+    "https://www.moneycontrol.com/rss/MCtopnews.xml",
 ]
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
+}
 
 ALLOWED_TOPICS = [
     "markets", "startups", "policy", "technology", "economy",
     "banking", "energy", "geopolitics", "corporate", "agriculture",
+    "inflation", "rbi", "budget", "ipo", "mutual funds"
 ]
 
-# ChromaDB client (persistent storage)
-_chroma_client = None
-_collection = None
 
-
-def _get_chroma_collection():
-    """Lazy-init ChromaDB client and collection."""
-    global _chroma_client, _collection
-    if _chroma_client is None:
-        _chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
-        _collection = _chroma_client.get_or_create_collection(
-            name="articles",
-            metadata={"hnsw:space": "cosine"},
-        )
-    return _collection
-
-
-def _fetch_rss(feed_url: str) -> list[dict]:
-    """Parse an RSS feed and return list of entry dicts."""
+def is_recent(published_str: str) -> bool:
     try:
-        parsed = feedparser.parse(feed_url)
-        entries = []
-        for entry in parsed.entries[:20]:  # Limit to 20 per feed
-            entries.append({
-                "title": entry.get("title", ""),
-                "link": entry.get("link", ""),
-                "summary": entry.get("summary", entry.get("description", "")),
-                "published": entry.get("published", entry.get("updated", "")),
-            })
-        return entries
-    except Exception as e:
-        logger.error(f"Error fetching RSS feed {feed_url}: {e}")
-        return []
+        import email.utils
+        parsed = email.utils.parsedate_to_datetime(published_str)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=CUTOFF_HOURS)
+        return parsed >= cutoff
+    except Exception:
+        return True
 
 
-def _scrape_full_text(url: str) -> str:
-    """Scrape full article text from URL. Falls back to empty string on failure."""
+async def fetch_full_text(url: str) -> str:
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                          "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        resp = requests.get(url, headers=headers, timeout=10)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        # Try <article> tag first, then main content divs
-        article = soup.find("article")
-        if article:
+        async with httpx.AsyncClient(
+            headers=HEADERS, timeout=12, follow_redirects=True
+        ) as client:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return ""
+            soup = BeautifulSoup(response.text, "html.parser")
+            for tag in soup(["script", "style", "nav", "footer",
+                              "aside", "header", "form", "iframe"]):
+                tag.decompose()
+            article = soup.find("article") or soup.find("main") or soup.find("body")
+            if not article:
+                return ""
             paragraphs = article.find_all("p")
-        else:
-            # Try common content containers
-            main = soup.find("main") or soup.find("div", class_="article-body") or soup
-            paragraphs = main.find_all("p")
-
-        text = " ".join(p.get_text(strip=True) for p in paragraphs)
-        # Limit to ~1500 words
-        words = text.split()
-        if len(words) > 1500:
-            text = " ".join(words[:1500])
-        return text
-    except Exception as e:
-        logger.warning(f"Failed to scrape {url}: {e}")
+            text = " ".join(p.get_text(strip=True) for p in paragraphs)
+            words = text.split()
+            return " ".join(words[:2000])
+    except Exception:
         return ""
 
 
-async def _generate_summary(content: str) -> str:
-    """Generate a 2-sentence summary of article content using LLM."""
-    if not content or len(content.strip()) < 50:
-        return ""
+async def generate_summary(content: str, title: str) -> str:
+    if not content:
+        return title
+    prompt = (
+        f"Summarize this news article in exactly 2 sentences. "
+        f"Be factual, specific, and concise. No opinions.\n\n"
+        f"Title: {title}\n\n"
+        f"Article: {content[:1500]}"
+    )
     try:
-        prompt = (
-            "Summarize this news article in exactly 2 sentences. "
-            "Be factual and concise.\n\n"
-            f"Article: {content[:3000]}"
-        )
-        return await ask_llm(prompt)
-    except LLMUnavailableError:
-        logger.warning("LLM unavailable for summary generation")
-        return ""
+        async with _llm_semaphore:
+            return await ask_llm(prompt)
+    except Exception:
+        return title
 
 
-async def _extract_topics(title: str, content: str) -> list[str]:
-    """Extract topic tags from article using LLM."""
+async def extract_topics(title: str, content: str) -> list:
+    prompt = (
+        f"Return a JSON array of 3-5 topic tags for this news article. "
+        f"You MUST only use tags from this exact list: "
+        f"{json.dumps(ALLOWED_TOPICS)}. "
+        f"Return ONLY the JSON array with no explanation, no markdown, "
+        f"no backticks. Example: [\"markets\", \"rbi\", \"banking\"]\n\n"
+        f"Title: {title}\n"
+        f"Content: {content[:400]}"
+    )
     try:
-        prompt = (
-            "Return a JSON array of 3-5 topic tags for this article. Use only tags from this "
-            f"allowed list: {', '.join(ALLOWED_TOPICS)}. "
-            "Return ONLY the JSON array, nothing else.\n\n"
-            f"Article title: {title}\n"
-            f"Article: {content[:500]}"
-        )
-        response = await ask_llm(prompt)
-        # Extract JSON array from response
-        response = response.strip()
-        # Handle cases where LLM wraps in markdown code block
-        if "```" in response:
-            start = response.find("[")
-            end = response.rfind("]") + 1
-            if start >= 0 and end > start:
-                response = response[start:end]
-        topics = json.loads(response)
-        if isinstance(topics, list):
-            # Filter to only allowed topics
-            return [t.lower().strip() for t in topics if t.lower().strip() in ALLOWED_TOPICS]
-        return ["general"]
-    except (json.JSONDecodeError, LLMUnavailableError, Exception):
-        return ["general"]
+        async with _llm_semaphore:
+            raw = await ask_llm(prompt)
+        raw = raw.strip().strip("`").replace("json", "").strip()
+        topics = json.loads(raw)
+        valid = [t for t in topics if t in ALLOWED_TOPICS]
+        return valid if valid else ["economy"]
+    except Exception:
+        return ["economy"]
 
 
-async def _process_article(entry: dict, source_name: str) -> dict | None:
-    """Process a single RSS entry: scrape, summarize, extract topics, store."""
+async def embed_and_store(article: dict):
+    text_to_embed = f"{article['title']}. {article['summary']}"
+    embedding = get_embedding(text_to_embed)
+    COLLECTION.upsert(
+        ids=[article["id"]],
+        embeddings=[embedding],
+        metadatas=[{
+            "title": article["title"],
+            "source": article["source"],
+            "published_at": article["published_at"],
+            "topics": json.dumps(article["topics"]),
+            "url": article["url"],
+            "summary": article["summary"],
+        }],
+        documents=[text_to_embed],
+    )
+    await mark_embedded(article["id"])
+
+
+async def process_article(entry: dict, source_name: str):
     url = entry.get("link", "")
     if not url:
-        return None
+        return
 
-    # Check if article already exists
-    existing = await get_article_by_url(url)
-    if existing is not None:
-        return existing
+    article_id = hashlib.md5(url.encode()).hexdigest()
+    if await article_exists(article_id):
+        return
 
-    title = entry.get("title", "Untitled")
-    rss_summary = entry.get("summary", "")
-    published = entry.get("published", datetime.now().isoformat())
+    published_str = entry.get("published", "")
+    if published_str and not is_recent(published_str):
+        return
 
-    # Step 2: Full text extraction
-    full_text = await asyncio.to_thread(_scrape_full_text, url)
-    content = full_text if full_text else rss_summary
+    title = entry.get("title", "").strip()
+    if not title:
+        return
 
-    # Strip HTML from RSS summary fallback
-    if content == rss_summary and content:
-        soup = BeautifulSoup(content, "html.parser")
-        content = soup.get_text(strip=True)
-
+    content = await fetch_full_text(url)
     if not content:
-        return None
+        content = entry.get("summary", "") or entry.get("description", "")
+    content = content.strip()
 
-    # Step 3: Generate summary
-    summary = await _generate_summary(content)
-    if not summary:
-        # Fall back to first 2 sentences of content
-        sentences = content.split(". ")
-        summary = ". ".join(sentences[:2]) + "." if sentences else content[:200]
+    # Run sequentially to avoid overwhelming Ollama
+    summary = await generate_summary(content, title)
+    topics = await extract_topics(title, content)
 
-    # Step 4: Extract topics
-    topics = await _extract_topics(title, content)
+    published_at = published_str or datetime.now(timezone.utc).isoformat()
 
-    # Step 6: Save to SQLite
-    article_id = str(uuid.uuid4())
-    await upsert_article(
-        article_id=article_id,
-        title=title,
-        content=content,
-        summary=summary,
-        url=url,
-        source=source_name,
-        published_at=published,
-        topics=topics,
-        embedded=0,
-    )
-
-    # Step 5: Embed and store in ChromaDB (background, don't block)
-    try:
-        embed_text_str = f"{title}. {summary}"
-        embedding = await asyncio.to_thread(embed_text, embed_text_str)
-        collection = _get_chroma_collection()
-        collection.upsert(
-            ids=[article_id],
-            embeddings=[embedding],
-            documents=[embed_text_str],
-            metadatas=[{
-                "title": title,
-                "source": source_name,
-                "published_at": str(published),
-                "topics": json.dumps(topics),
-                "url": url,
-            }],
-        )
-        await mark_article_embedded(article_id)
-    except Exception as e:
-        logger.error(f"Failed to embed article {article_id}: {e}")
-
-    return {
+    article = {
         "id": article_id,
         "title": title,
         "content": content,
         "summary": summary,
         "url": url,
         "source": source_name,
-        "published_at": published,
+        "published_at": published_at,
         "topics": topics,
+        "embedded": 0,
     }
 
-
-async def ingest_all_feeds() -> int:
-    """
-    Main ingestion pipeline: fetch all RSS feeds, process each article.
-    Returns the count of newly ingested articles.
-    """
-    logger.info("Starting news ingestion pipeline...")
-    total_new = 0
-
-    for feed_info in RSS_FEEDS:
-        logger.info(f"Fetching RSS from {feed_info['source']}...")
-        entries = await asyncio.to_thread(_fetch_rss, feed_info["url"])
-        logger.info(f"  Found {len(entries)} entries from {feed_info['source']}")
-
-        for entry in entries:
-            try:
-                result = await _process_article(entry, feed_info["source"])
-                if result and "id" in result:
-                    total_new += 1
-            except Exception as e:
-                logger.error(f"Error processing article '{entry.get('title', '?')}': {e}")
-                continue
-
-    logger.info(f"Ingestion complete. {total_new} new articles processed.")
-    return total_new
+    await save_article(article)
+    await embed_and_store(article)
+    print(f"[INGESTED] {source_name}: {title[:60]}")
 
 
-async def search_articles(query: str, n: int = 10) -> list[dict]:
-    """
-    Semantic search: embed the query, search ChromaDB, merge with SQLite data.
-    Returns top n articles sorted by relevance.
-    """
+async def ingest_feed(feed_url: str):
     try:
-        collection = _get_chroma_collection()
-        if collection.count() == 0:
-            return []
-
-        query_embedding = await asyncio.to_thread(embed_text, query)
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=min(n, collection.count()),
-            include=["metadatas", "distances", "documents"],
-        )
-
-        if not results or not results["ids"] or not results["ids"][0]:
-            return []
-
-        article_ids = results["ids"][0]
-        metadatas = results["metadatas"][0] if results["metadatas"] else [{}] * len(article_ids)
-        distances = results["distances"][0] if results["distances"] else [1.0] * len(article_ids)
-
-        # Fetch full article data from SQLite
-        articles_from_db = await get_articles_by_ids(article_ids)
-        db_lookup = {a["id"]: a for a in articles_from_db}
-
-        articles = []
-        for i, aid in enumerate(article_ids):
-            if aid in db_lookup:
-                article = db_lookup[aid].copy()
-                article["relevance_score"] = 1.0 - distances[i] if i < len(distances) else 0.0
-                articles.append(article)
-            else:
-                # Fallback to metadata if not in SQLite
-                meta = metadatas[i] if i < len(metadatas) else {}
-                articles.append({
-                    "id": aid,
-                    "title": meta.get("title", ""),
-                    "source": meta.get("source", ""),
-                    "url": meta.get("url", ""),
-                    "published_at": meta.get("published_at", ""),
-                    "topics": json.loads(meta.get("topics", "[]")),
-                    "summary": "",
-                    "content": "",
-                    "relevance_score": 1.0 - distances[i] if i < len(distances) else 0.0,
-                })
-
-        # Sort by relevance score descending
-        articles.sort(key=lambda a: a.get("relevance_score", 0), reverse=True)
-        return articles
-
+        parsed = feedparser.parse(feed_url)
+        source_name = parsed.feed.get("title", feed_url.split("/")[2])
+        entries = parsed.entries[:5]  # Limit per feed for speed
+        for entry in entries:
+            await process_article(entry, source_name)
     except Exception as e:
-        logger.error(f"Search error: {e}")
+        print(f"[ERROR] Feed failed {feed_url}: {e}")
+
+
+async def ingest_all_feeds():
+    print(f"[INGESTION] Starting at {datetime.now(timezone.utc).isoformat()}")
+    # Process feeds one at a time to avoid overwhelming Ollama
+    for url in RSS_FEEDS:
+        await ingest_feed(url)
+    print(f"[INGESTION] Complete at {datetime.now(timezone.utc).isoformat()}")
+
+
+async def search_articles(query: str, n: int = 10) -> list:
+    from database import get_article_by_id
+    embedding = get_embedding(query)
+    try:
+        results = COLLECTION.query(
+            query_embeddings=[embedding],
+            n_results=min(n, COLLECTION.count() or 1),
+        )
+    except Exception:
         return []
+
+    articles = []
+    for i, article_id in enumerate(results["ids"][0]):
+        meta = results["metadatas"][0][i]
+        full = await get_article_by_id(article_id)
+        if full:
+            articles.append({**full, **meta,
+                             "topics": json.loads(meta.get("topics", "[]"))})
+        else:
+            articles.append({
+                "id": article_id,
+                "title": meta.get("title", ""),
+                "summary": meta.get("summary", ""),
+                "url": meta.get("url", ""),
+                "source": meta.get("source", ""),
+                "published_at": meta.get("published_at", ""),
+                "topics": json.loads(meta.get("topics", "[]")),
+                "content": "",
+            })
+    return articles

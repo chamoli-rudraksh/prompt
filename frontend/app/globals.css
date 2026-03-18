@@ -95,21 +95,7 @@ body {
   gap: 1rem;
 }
 
-.demo-btn {
-  background: var(--et-gray-light);
-  color: var(--et-navy);
-  border: 1px solid var(--et-border);
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
 
-.demo-btn:hover {
-  background: var(--et-border);
-}
 
 .user-avatar {
   background: var(--et-teal);
@@ -380,6 +366,23 @@ body {
   color: var(--et-gray-dark);
 }
 
+.refresh-btn {
+  margin-top: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--et-navy);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.refresh-btn:hover {
+  background: #0d2e57;
+}
+
 .feed-banner {
   background: #FEF3C7;
   color: #92400E;
@@ -608,15 +611,10 @@ body {
   cursor: not-allowed;
 }
 
-.demo-load-btn {
-  display: block;
-  margin: 0 auto 2rem;
-  background: none;
-  border: 1px dashed var(--et-gray);
-  color: var(--et-navy);
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
+.navigator-loading-state {
+  text-align: center;
+  padding: 2rem;
+  color: var(--et-gray-dark);
 }
 
 .navigator-banner, .story-banner {

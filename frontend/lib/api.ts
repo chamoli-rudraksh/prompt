@@ -14,7 +14,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 120000, // 2 minutes for LLM responses
+  timeout: 300000, // 5 minutes for LLM responses (Ollama on CPU is slow)
   headers: {
     'Content-Type': 'application/json',
   },
@@ -80,23 +80,6 @@ export async function sendChatMessage(
 
 export async function getStoryArc(storyQuery: string, userId: string): Promise<StoryArcResponse> {
   const res = await api.post('/story-arc', { story_query: storyQuery, user_id: userId });
-  return res.data;
-}
-
-// ─── Demo Data ──────────────────────────────────────────────────────────────
-
-export async function getDemoFeed(): Promise<FeedResponse> {
-  const res = await api.get('/demo/feed');
-  return res.data;
-}
-
-export async function getDemoBriefing(): Promise<BriefingResponse> {
-  const res = await api.get('/demo/briefing');
-  return res.data;
-}
-
-export async function getDemoStoryArc(): Promise<StoryArcResponse> {
-  const res = await api.get('/demo/story-arc');
   return res.data;
 }
 

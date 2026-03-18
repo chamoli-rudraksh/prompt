@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ArticleCard from '@/components/ArticleCard';
-import { getFeed, getDemoFeed } from '@/lib/api';
+import { getFeed } from '@/lib/api';
 import { Article } from '@/types';
 
 export default function FeedPage() {
@@ -14,13 +14,11 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [userId, setUserId] = useState('');
-  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     const id = localStorage.getItem('etnewsai_user_id');
     const name = localStorage.getItem('etnewsai_user_name');
     const p = localStorage.getItem('etnewsai_persona');
-    const demo = localStorage.getItem('etnewsai_demo');
 
     if (!id) {
       router.push('/');
@@ -30,34 +28,29 @@ export default function FeedPage() {
     setUserId(id);
     setUserName(name || '');
     setPersona(p || '');
-    setIsDemo(demo === 'true');
 
-    loadFeed(id, demo === 'true');
+    loadFeed(id);
   }, [router]);
 
-  const loadFeed = async (id: string, demo: boolean) => {
+  const loadFeed = async (id: string) => {
     setLoading(true);
     setError('');
     try {
-      if (demo) {
-        const data = await getDemoFeed();
-        setArticles(data.articles || []);
-        setUserName(data.user_name || 'Demo User');
-      } else {
-        const data = await getFeed(id, 20);
-        setArticles(data.articles || []);
-        if (data.user_name) setUserName(data.user_name);
-      }
+      const data = await getFeed(id, 20);
+      setArticles(data.articles || []);
+      if (data.user_name) setUserName(data.user_name);
     } catch (err: any) {
       console.error('Feed error:', err);
-      // Try demo data as fallback
-      try {
-        const data = await getDemoFeed();
-        setArticles(data.articles || []);
-        setError('Running in preview mode — showing demo data');
-      } catch {
-        setError('Unable to load feed. Please check backend connection.');
+      if (err?.response?.status === 404) {
+        // User doesn't exist in DB — clear stale data and go to onboarding
+        localStorage.removeItem('etnewsai_user_id');
+        localStorage.removeItem('etnewsai_user_name');
+        localStorage.removeItem('etnewsai_persona');
+        localStorage.removeItem('etnewsai_demo');
+        router.push('/');
+        return;
       }
+      setError('Unable to load feed. Please check backend connection.');
     } finally {
       setLoading(false);
     }
@@ -92,7 +85,7 @@ export default function FeedPage() {
 
       {loading ? (
         <div className="feed-grid">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="skeleton-card">
               <div className="skeleton-line short"></div>
               <div className="skeleton-line"></div>
@@ -108,11 +101,16 @@ export default function FeedPage() {
         </div>
       ) : articles.length === 0 ? (
         <div className="feed-empty">
-          <h2>No articles yet</h2>
+          <h2>News is being fetched right now</h2>
           <p>
-            Articles are being ingested in the background. Check back in a few
-            minutes, or click Demo in the navbar for a preview.
+            Articles are being ingested from live sources. Check back in 2 minutes.
           </p>
+          <button
+            className="refresh-btn"
+            onClick={() => loadFeed(userId)}
+          >
+            🔄 Refresh
+          </button>
         </div>
       ) : (
         <div className="feed-grid">

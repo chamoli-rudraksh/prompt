@@ -248,7 +248,7 @@ async def append_message(conv_id: str, role: str, content: str) -> None:
 
 # ─── Saved Articles CRUD ────────────────────────────────────────────────────
 
-async def save_article(user_id: str, article_id: str) -> None:
+async def save_user_article(user_id: str, article_id: str) -> None:
     db = await get_db()
     try:
         await db.execute(
@@ -274,3 +274,71 @@ async def get_saved_articles(user_id: str) -> list[dict]:
         return [_row_to_article(row) for row in rows]
     finally:
         await db.close()
+
+
+# ─── New helpers for ingestion pipeline ──────────────────────────────────────
+
+async def article_exists(article_id: str) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT 1 FROM articles WHERE id = ?", (article_id,)
+        )
+        row = await cursor.fetchone()
+        return row is not None
+
+
+async def save_article(article: dict):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT OR IGNORE INTO articles
+               (id, title, content, summary, url, source,
+                published_at, topics, embedded)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                article["id"], article["title"], article["content"],
+                article["summary"], article["url"], article["source"],
+                article["published_at"],
+                json.dumps(article.get("topics", [])),
+                article.get("embedded", 0),
+            )
+        )
+        await db.commit()
+
+
+async def mark_embedded(article_id: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE articles SET embedded = 1 WHERE id = ?", (article_id,)
+        )
+        await db.commit()
+
+
+async def get_article_by_id(article_id: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM articles WHERE id = ?", (article_id,)
+        )
+        row = await cursor.fetchone()
+        if row:
+            d = dict(row)
+            d["topics"] = json.loads(d.get("topics", "[]"))
+            return d
+        return None
+
+
+async def get_recent_articles(limit: int = 50) -> list:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM articles ORDER BY published_at DESC LIMIT ?",
+            (limit,)
+        )
+        rows = await cursor.fetchall()
+        result = []
+        for row in rows:
+            d = dict(row)
+            d["topics"] = json.loads(d.get("topics", "[]"))
+            result.append(d)
+        return result
+

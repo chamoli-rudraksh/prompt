@@ -7,22 +7,11 @@ import { useState, useEffect } from 'react';
 export default function Navbar() {
   const pathname = usePathname();
   const [userName, setUserName] = useState('');
-  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
     const name = localStorage.getItem('etnewsai_user_name');
     if (name) setUserName(name);
   }, []);
-
-  const handleDemo = () => {
-    localStorage.setItem('etnewsai_user_id', 'demo-user-001');
-    localStorage.setItem('etnewsai_user_name', 'Demo User');
-    localStorage.setItem('etnewsai_persona', 'investor');
-    localStorage.setItem('etnewsai_demo', 'true');
-    setUserName('Demo User');
-    setIsDemo(true);
-    window.location.href = '/feed';
-  };
 
   const navLinks = [
     { href: '/feed', label: 'My Feed' },
@@ -51,9 +40,6 @@ export default function Navbar() {
         </div>
 
         <div className="navbar-right">
-          <button onClick={handleDemo} className="demo-btn">
-            Demo
-          </button>
           {userName && (
             <div className="user-avatar" title={userName}>
               {userName.charAt(0).toUpperCase()}

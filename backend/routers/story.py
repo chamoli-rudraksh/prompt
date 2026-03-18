@@ -5,6 +5,7 @@ Generates timeline, player map, sentiment chart, and contrarian view.
 
 import json
 import logging
+import traceback
 
 from fastapi import APIRouter, HTTPException
 
@@ -13,7 +14,7 @@ from models.schemas import (
     ArticleResponse, TimelineEvent, Player, SentimentPoint,
 )
 from ingestion import search_articles
-from llm import ask_llm, LLMUnavailableError
+from llm import ask_llm
 
 router = APIRouter(tags=["story"])
 logger = logging.getLogger(__name__)
@@ -90,34 +91,50 @@ async def get_story_arc(req: StoryArcRequest):
             arc_data = _parse_story_json(response_text)
 
         if arc_data is None:
-            # Return partial data with error flag
+            # Return partial data with just articles
             return StoryArcResponse(
                 summary=f"Unable to fully analyze '{req.story_query}'. Found {len(articles)} related articles.",
                 articles=[_to_article_response(a) for a in articles[:8]],
                 what_to_watch=["Check back later for a complete analysis"],
             )
 
-        # 5. Build response
+        # 5. Build response — safely parse each field
+        timeline = []
+        for evt in arc_data.get("timeline", []):
+            try:
+                timeline.append(TimelineEvent(**evt))
+            except Exception:
+                pass
+
+        players = []
+        for p in arc_data.get("players", []):
+            try:
+                players.append(Player(**p))
+            except Exception:
+                pass
+
+        sentiment = []
+        for s in arc_data.get("sentiment_over_time", []):
+            try:
+                sentiment.append(SentimentPoint(**s))
+            except Exception:
+                pass
+
         return StoryArcResponse(
-            timeline=[TimelineEvent(**evt) for evt in arc_data.get("timeline", [])],
-            players=[Player(**p) for p in arc_data.get("players", [])],
-            sentiment_over_time=[SentimentPoint(**s) for s in arc_data.get("sentiment_over_time", [])],
+            timeline=timeline,
+            players=players,
+            sentiment_over_time=sentiment,
             contrarian_view=arc_data.get("contrarian_view", ""),
             summary=arc_data.get("summary", ""),
             what_to_watch=arc_data.get("what_to_watch", []),
             articles=[_to_article_response(a) for a in articles[:8]],
         )
 
-    except LLMUnavailableError:
-        raise HTTPException(
-            status_code=503,
-            detail=json.dumps({"error": "LLM unavailable", "fallback": True}),
-        )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Story arc error: {e}")
-        raise HTTPException(status_code=500, detail=f"Story arc analysis failed: {str(e)}")
+        logger.error(f"Story arc error: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Story arc analysis failed: {type(e).__name__}: {str(e)}")
 
 
 def _parse_story_json(text: str) -> dict | None:

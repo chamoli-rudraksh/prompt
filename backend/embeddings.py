@@ -29,3 +29,7 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
     model = get_model()
     embeddings = model.encode(texts, convert_to_numpy=True)
     return embeddings.tolist()
+
+
+# Alias for compatibility with ingestion.py
+get_embedding = embed_text

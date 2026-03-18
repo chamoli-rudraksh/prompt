@@ -13,30 +13,25 @@ A news intelligence platform that transforms how professionals consume business 
 ## Setup
 
 ### Prerequisites
+
 - Node.js 18+, Python 3.11+, Ollama installed
 
-### 1. Install Ollama and pull model
+### 1. Terminal 1
+
 ```bash
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.1:8b
+ollama serve
 ```
 
-### 2. Backend
+### 2. Terminal 2
+
 ```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn main:app --reload --port 8000
+cd backend && source venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-### 3. Frontend
+### 3. Terminal 3
+
 ```bash
-cd frontend
-npm install
-cp .env.local.example .env.local
-npm run dev
+cd frontend && npm run dev
 ```
 
 ### 4. Open http://localhost:3000
@@ -52,17 +47,22 @@ ET NewsAI uses a 3-layer architecture:
 - **Data Layer** — SQLite for user profiles, article cache, and conversation history. ChromaDB for semantic vector search. RSS ingestion pipeline with background scheduling (every 30 mins).
 
 ### LLM Pluggability
+
 The LLM is abstracted behind a single file (`llm.py`). Switching from Ollama to Claude requires changing only 2 lines in `.env`:
+
 ```
 LLM_PROVIDER=claude
 CLAUDE_API_KEY=your-key-here
 ```
+
 Zero code changes needed anywhere else.
 
 ## Demo Mode
+
 Click the "Demo" button in the navbar to see the full product instantly with pre-loaded data — no Ollama required.
 
 ## Tech Stack
+
 - **Frontend**: Next.js 14, TypeScript, Tailwind CSS, D3.js, Axios
 - **Backend**: FastAPI, Python 3.11+, Uvicorn
 - **AI/ML**: Ollama (llama3.1:8b), sentence-transformers (all-MiniLM-L6-v2)

@@ -1,18 +1,34 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import OnboardingModal from '@/components/OnboardingModal';
-import { createUser } from '@/lib/api';
+import { createUser, getUser } from '@/lib/api';
 
 export default function HomePage() {
   const router = useRouter();
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const userId = localStorage.getItem('etnewsai_user_id');
-    if (userId) {
-      router.push('/feed');
-    }
+    const checkUser = async () => {
+      const userId = localStorage.getItem('etnewsai_user_id');
+      if (userId) {
+        try {
+          // Verify the user actually exists in the backend
+          await getUser(userId);
+          router.push('/feed');
+          return;
+        } catch {
+          // User doesn't exist in DB (e.g. old demo user) — clear stale data
+          localStorage.removeItem('etnewsai_user_id');
+          localStorage.removeItem('etnewsai_user_name');
+          localStorage.removeItem('etnewsai_persona');
+          localStorage.removeItem('etnewsai_demo');
+        }
+      }
+      setChecking(false);
+    };
+    checkUser();
   }, [router]);
 
   const handleOnboardingComplete = async (
@@ -20,22 +36,20 @@ export default function HomePage() {
     persona: string,
     interests: string[]
   ) => {
-    try {
-      const user = await createUser({ name, persona, interests });
-      localStorage.setItem('etnewsai_user_id', user.id);
-      localStorage.setItem('etnewsai_user_name', user.name);
-      localStorage.setItem('etnewsai_persona', user.persona);
-      router.push('/feed');
-    } catch (error) {
-      console.error('Failed to create user:', error);
-      // Fallback: create local-only user
-      const fallbackId = 'local-' + Date.now();
-      localStorage.setItem('etnewsai_user_id', fallbackId);
-      localStorage.setItem('etnewsai_user_name', name);
-      localStorage.setItem('etnewsai_persona', persona);
-      router.push('/feed');
-    }
+    const user = await createUser({ name, persona, interests });
+    localStorage.setItem('etnewsai_user_id', user.id);
+    localStorage.setItem('etnewsai_user_name', user.name);
+    localStorage.setItem('etnewsai_persona', user.persona);
+    router.push('/feed');
   };
+
+  if (checking) {
+    return (
+      <div className="landing-page" style={{ textAlign: 'center', padding: '4rem' }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="landing-page">
