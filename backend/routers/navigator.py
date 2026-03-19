@@ -18,7 +18,7 @@ from database import (
     append_message, get_articles_by_ids,
 )
 from ingestion import search_articles
-from llm import ask_llm, build_rag_prompt
+from llm import ask_llm, ask_llm_stream, build_rag_prompt
 
 router = APIRouter(tags=["navigator"])
 logger = logging.getLogger(__name__)
@@ -139,8 +139,7 @@ async def chat_follow_up(req: ChatRequest):
             async def generate():
                 full_response = []
                 try:
-                    gen = await ask_llm(chat_prompt, stream=True)
-                    async for chunk in gen:
+                    async for chunk in ask_llm_stream(chat_prompt):
                         full_response.append(chunk)
                         yield f"data: {json.dumps({'text': chunk})}\n\n"
                     yield "data: [DONE]\n\n"
@@ -185,8 +184,8 @@ def _format_articles_for_prompt(articles: list[dict]) -> str:
     for i, a in enumerate(articles, 1):
         content = a.get("content", a.get("summary", ""))
         # Truncate content to avoid excessive tokens
-        if len(content) > 1500:
-            content = content[:1500] + "..."
+        if len(content) > 800:
+            content = content[:800] + "..."
         parts.append(
             f"[Article {i}]\n"
             f"Title: {a.get('title', 'Untitled')}\n"

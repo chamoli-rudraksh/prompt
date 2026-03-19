@@ -10,9 +10,16 @@ from bs4 import BeautifulSoup
 from database import save_article, article_exists, mark_embedded
 from embeddings import get_embedding
 from llm import ask_llm
-import chromadb
 
-CHROMA = chromadb.PersistentClient(path=os.getenv("CHROMA_PATH", "./chroma_store"))
+# Disable ChromaDB telemetry before import to avoid posthog version conflict
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+import chromadb
+from chromadb.config import Settings
+
+CHROMA = chromadb.PersistentClient(
+    path=os.getenv("CHROMA_PATH", "./chroma_store"),
+    settings=Settings(anonymized_telemetry=False),
+)
 COLLECTION = CHROMA.get_or_create_collection("articles")
 
 CUTOFF_HOURS = 24

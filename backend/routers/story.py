@@ -27,7 +27,7 @@ async def get_story_arc(req: StoryArcRequest):
     """
     try:
         # 1. Search for relevant articles
-        articles = await search_articles(req.story_query, n=15)
+        articles = await search_articles(req.story_query, n=8)
 
         if not articles:
             return StoryArcResponse(
@@ -176,8 +176,8 @@ def _format_articles(articles: list[dict]) -> str:
     parts = []
     for i, a in enumerate(articles, 1):
         content = a.get("content", a.get("summary", ""))
-        if len(content) > 800:
-            content = content[:800] + "..."
+        if len(content) > 500:
+            content = content[:500] + "..."
         parts.append(
             f"[Article {i}]\n"
             f"Title: {a.get('title', '')}\n"
