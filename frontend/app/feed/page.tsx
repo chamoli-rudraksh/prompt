@@ -6,6 +6,8 @@ import ArticleCard from '@/components/ArticleCard';
 import { getFeed } from '@/lib/api';
 import { Article } from '@/types';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export default function FeedPage() {
   const router = useRouter();
   const [articles, setArticles] = useState<Article[]>([]);
@@ -14,6 +16,7 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [userId, setUserId] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const id = localStorage.getItem('etnewsai_user_id');
@@ -32,6 +35,15 @@ export default function FeedPage() {
     loadFeed(id);
   }, [router]);
 
+  // Listen for refresh-feed event from navbar dropdown
+  useEffect(() => {
+    const handler = () => {
+      if (userId) handleRefresh();
+    };
+    window.addEventListener('refresh-feed', handler);
+    return () => window.removeEventListener('refresh-feed', handler);
+  }, [userId]);
+
   const loadFeed = async (id: string) => {
     setLoading(true);
     setError('');
@@ -42,7 +54,6 @@ export default function FeedPage() {
     } catch (err: any) {
       console.error('Feed error:', err);
       if (err?.response?.status === 404) {
-        // User doesn't exist in DB — clear stale data and go to onboarding
         localStorage.removeItem('etnewsai_user_id');
         localStorage.removeItem('etnewsai_user_name');
         localStorage.removeItem('etnewsai_persona');
@@ -56,6 +67,19 @@ export default function FeedPage() {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetch(`${API_URL}/admin/refresh-news`, { method: 'POST' });
+      // Wait 4 seconds for ingestion to pull first articles
+      await new Promise(r => setTimeout(r, 4000));
+      // Re-fetch the feed
+      await loadFeed(userId);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
@@ -66,15 +90,30 @@ export default function FeedPage() {
   return (
     <div className="feed-page">
       <div className="feed-header">
-        <h1 className="feed-greeting">
-          {getGreeting()}, {userName || 'there'}.{' '}
-          <span className="feed-greeting-sub">
-            Here&apos;s what matters to you today.
-          </span>
-        </h1>
-        {persona && (
-          <span className="feed-persona-badge">{persona}</span>
-        )}
+        <div className="feed-header-left">
+          <h1 className="feed-greeting">
+            {getGreeting()}, {userName || 'there'}.{' '}
+            <span className="feed-greeting-sub">
+              Here&apos;s what matters to you today.
+            </span>
+          </h1>
+          {persona && (
+            <span className="feed-persona-badge">{persona}</span>
+          )}
+        </div>
+        <div className="feed-header-right">
+          <button
+            className="btn-accent"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? (
+              <>Refreshing... <span className="spinner" /></>
+            ) : (
+              'Refresh feed'
+            )}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -103,14 +142,8 @@ export default function FeedPage() {
         <div className="feed-empty">
           <h2>News is being fetched right now</h2>
           <p>
-            Articles are being ingested from live sources. Check back in 2 minutes.
+            Articles are being ingested from live sources. Click &quot;Refresh feed&quot; above to check again.
           </p>
-          <button
-            className="refresh-btn"
-            onClick={() => loadFeed(userId)}
-          >
-            🔄 Refresh
-          </button>
         </div>
       ) : (
         <div className="feed-grid">

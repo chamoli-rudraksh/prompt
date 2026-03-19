@@ -1,6 +1,7 @@
 'use client';
 
 import { SourceInfo } from '@/types';
+import React from 'react';
 
 interface BriefingPanelProps {
   briefingText: string;
@@ -37,7 +38,7 @@ export default function BriefingPanel({ briefingText, sources, loading }: Briefi
   // Parse markdown-like sections for styled rendering
   const renderBriefing = (text: string) => {
     const lines = text.split('\n');
-    const elements: JSX.Element[] = [];
+    const elements: React.JSX.Element[] = [];
     let currentList: string[] = [];
 
     const flushList = () => {

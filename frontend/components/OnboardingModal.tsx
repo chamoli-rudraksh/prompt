@@ -25,7 +25,6 @@ const topicOptions = [
 ];
 
 export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
-  const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [persona, setPersona] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
@@ -44,52 +43,39 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
 
   return (
     <div className="onboarding-container">
-      {step === 1 && (
-        <div className="onboarding-step">
-          <h2 className="onboarding-title">What&apos;s your name?</h2>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter your name"
-            className="onboarding-input"
-            id="onboarding-name"
-          />
+      <h2 className="onboarding-title">What kind of reader are you?</h2>
+      <p className="onboarding-subtitle">Personalise your ET NewsAI experience in 30 seconds</p>
+
+      {/* Name input */}
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Enter your name"
+        className="onboarding-input"
+        id="onboarding-name"
+      />
+
+      {/* Persona selection */}
+      <div className="persona-grid">
+        {personas.map(p => (
           <button
-            onClick={() => name.trim() && setStep(2)}
-            disabled={!name.trim()}
-            className="onboarding-next-btn"
-            id="onboarding-next-1"
+            key={p.id}
+            onClick={() => setPersona(p.id)}
+            className={`persona-card ${persona === p.id ? 'selected' : ''}`}
+            id={`persona-${p.id}`}
           >
-            Continue
+            <span className="persona-icon">{p.icon}</span>
+            <span className="persona-label">{p.label}</span>
+            <span className="persona-desc">{p.desc}</span>
           </button>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {step === 2 && (
-        <div className="onboarding-step">
-          <h2 className="onboarding-title">I am a...</h2>
-          <div className="persona-grid">
-            {personas.map(p => (
-              <button
-                key={p.id}
-                onClick={() => { setPersona(p.id); setStep(3); }}
-                className={`persona-card ${persona === p.id ? 'selected' : ''}`}
-                id={`persona-${p.id}`}
-              >
-                <span className="persona-icon">{p.icon}</span>
-                <span className="persona-label">{p.label}</span>
-                <span className="persona-desc">{p.desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="onboarding-step">
-          <h2 className="onboarding-title">What interests you?</h2>
-          <p className="onboarding-subtitle">Select at least one topic</p>
+      {/* Topic selection */}
+      {persona && (
+        <>
+          <p className="onboarding-subtitle" style={{ marginTop: '1rem' }}>Select topics that interest you</p>
           <div className="interests-grid">
             {topicOptions.map(t => (
               <button
@@ -102,16 +88,17 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
               </button>
             ))}
           </div>
-          <button
-            onClick={handleSubmit}
-            disabled={interests.length === 0}
-            className="onboarding-submit-btn"
-            id="onboarding-submit"
-          >
-            Start Reading →
-          </button>
-        </div>
+        </>
       )}
+
+      <button
+        onClick={handleSubmit}
+        disabled={!name.trim() || !persona || interests.length === 0}
+        className="onboarding-submit-btn"
+        id="onboarding-submit"
+      >
+        Start reading →
+      </button>
     </div>
   );
 }

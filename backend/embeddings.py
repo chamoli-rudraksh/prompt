@@ -1,35 +1,24 @@
 """
-Embeddings module — Sentence-transformers wrapper.
-Uses all-MiniLM-L6-v2 model, runs fully offline.
+Embeddings module — OllamaEmbeddings via LangChain.
+Uses nomic-embed-text model via Ollama.
 Reused across ingestion.py and anywhere embeddings are needed.
 """
 
-from sentence_transformers import SentenceTransformer
+from langchain_ollama import OllamaEmbeddings
+import os
 
-_model = None
-
-
-def get_model() -> SentenceTransformer:
-    """Lazy-load the sentence-transformers model (singleton)."""
-    global _model
-    if _model is None:
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
-    return _model
+_embeddings = None
 
 
-def embed_text(text: str) -> list[float]:
-    """Embed a single text string. Returns a list of floats."""
-    model = get_model()
-    embedding = model.encode(text, convert_to_numpy=True)
-    return embedding.tolist()
+def get_embeddings():
+    global _embeddings
+    if _embeddings is None:
+        _embeddings = OllamaEmbeddings(
+            model="nomic-embed-text",
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+        )
+    return _embeddings
 
 
-def embed_texts(texts: list[str]) -> list[list[float]]:
-    """Embed a batch of text strings. Returns a list of float lists."""
-    model = get_model()
-    embeddings = model.encode(texts, convert_to_numpy=True)
-    return embeddings.tolist()
-
-
-# Alias for compatibility with ingestion.py
-get_embedding = embed_text
+def get_embedding(text: str) -> list[float]:
+    return get_embeddings().embed_query(text)

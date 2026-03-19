@@ -14,12 +14,10 @@ export default function HomePage() {
       const userId = localStorage.getItem('etnewsai_user_id');
       if (userId) {
         try {
-          // Verify the user actually exists in the backend
           await getUser(userId);
           router.push('/feed');
           return;
         } catch {
-          // User doesn't exist in DB (e.g. old demo user) — clear stale data
           localStorage.removeItem('etnewsai_user_id');
           localStorage.removeItem('etnewsai_user_name');
           localStorage.removeItem('etnewsai_persona');
@@ -46,7 +44,9 @@ export default function HomePage() {
   if (checking) {
     return (
       <div className="landing-page" style={{ textAlign: 'center', padding: '4rem' }}>
-        <p>Loading...</p>
+        <div className="loading-dots">
+          <span></span><span></span><span></span>
+        </div>
       </div>
     );
   }

@@ -21,11 +21,15 @@ CHROMA = chromadb.PersistentClient(
     settings=Settings(anonymized_telemetry=False),
 )
 COLLECTION = CHROMA.get_or_create_collection("articles")
+LONG_COLLECTION = CHROMA.get_or_create_collection("articles_longterm")
 
 CUTOFF_HOURS = 24
 
 # Global semaphore to limit concurrent LLM calls (Ollama handles 1 at a time)
 _llm_semaphore = asyncio.Semaphore(1)
+
+# Semaphore to limit concurrent embedding calls to 3
+EMBED_SEMAPHORE = asyncio.Semaphore(3)
 
 RSS_FEEDS = [
     "https://economictimes.indiatimes.com/rssfeedstopstories.cms",
@@ -48,6 +52,18 @@ ALLOWED_TOPICS = [
     "inflation", "rbi", "budget", "ipo", "mutual funds"
 ]
 
+# Skip scraping for paywalled/slow domains — use RSS summary instead
+SKIP_SCRAPE_DOMAINS = [
+    "economictimes.indiatimes.com",
+    "livemint.com",
+    "business-standard.com",
+    "financialexpress.com",
+]
+
+
+def should_scrape(url: str) -> bool:
+    return not any(d in url for d in SKIP_SCRAPE_DOMAINS)
+
 
 def is_recent(published_str: str) -> bool:
     try:
@@ -64,7 +80,7 @@ def is_recent(published_str: str) -> bool:
 async def fetch_full_text(url: str) -> str:
     try:
         async with httpx.AsyncClient(
-            headers=HEADERS, timeout=12, follow_redirects=True
+            headers=HEADERS, timeout=6, follow_redirects=True
         ) as client:
             response = await client.get(url)
             if response.status_code != 200:
@@ -79,7 +95,7 @@ async def fetch_full_text(url: str) -> str:
             paragraphs = article.find_all("p")
             text = " ".join(p.get_text(strip=True) for p in paragraphs)
             words = text.split()
-            return " ".join(words[:2000])
+            return " ".join(words[:800])
     except Exception:
         return ""
 
@@ -122,22 +138,33 @@ async def extract_topics(title: str, content: str) -> list:
 
 
 async def embed_and_store(article: dict):
-    text_to_embed = f"{article['title']}. {article['summary']}"
-    embedding = get_embedding(text_to_embed)
-    COLLECTION.upsert(
-        ids=[article["id"]],
-        embeddings=[embedding],
-        metadatas=[{
+    async with EMBED_SEMAPHORE:
+        text_to_embed = f"{article['title']}. {article['summary']}"
+        embedding = get_embedding(text_to_embed)
+        metadata = {
             "title": article["title"],
             "source": article["source"],
             "published_at": article["published_at"],
             "topics": json.dumps(article["topics"]),
             "url": article["url"],
             "summary": article["summary"],
-        }],
-        documents=[text_to_embed],
-    )
-    await mark_embedded(article["id"])
+            "id": article["id"],
+        }
+        # Short-term collection (used for feed and navigator)
+        COLLECTION.upsert(
+            ids=[article["id"]],
+            embeddings=[embedding],
+            metadatas=[metadata],
+            documents=[text_to_embed],
+        )
+        # Long-term collection (used for story arc — never purged)
+        LONG_COLLECTION.upsert(
+            ids=[article["id"]],
+            embeddings=[embedding],
+            metadatas=[metadata],
+            documents=[text_to_embed],
+        )
+        await mark_embedded(article["id"])
 
 
 async def process_article(entry: dict, source_name: str):
@@ -157,7 +184,12 @@ async def process_article(entry: dict, source_name: str):
     if not title:
         return
 
-    content = await fetch_full_text(url)
+    # Skip scraping for paywalled/slow domains
+    if should_scrape(url):
+        content = await fetch_full_text(url)
+    else:
+        content = ""
+
     if not content:
         content = entry.get("summary", "") or entry.get("description", "")
     content = content.strip()
@@ -198,39 +230,47 @@ async def ingest_feed(feed_url: str):
 
 async def ingest_all_feeds():
     print(f"[INGESTION] Starting at {datetime.now(timezone.utc).isoformat()}")
-    # Process feeds one at a time to avoid overwhelming Ollama
-    for url in RSS_FEEDS:
-        await ingest_feed(url)
+    await asyncio.gather(*[ingest_feed(url) for url in RSS_FEEDS])
     print(f"[INGESTION] Complete at {datetime.now(timezone.utc).isoformat()}")
 
 
 async def search_articles(query: str, n: int = 10) -> list:
-    from database import get_article_by_id
-    embedding = get_embedding(query)
-    try:
-        results = COLLECTION.query(
-            query_embeddings=[embedding],
-            n_results=min(n, COLLECTION.count() or 1),
-        )
-    except Exception:
-        return []
+    from llm import get_embeddings
+    from langchain_chroma import Chroma
+
+    vectorstore = Chroma(
+        collection_name="articles",
+        embedding_function=get_embeddings(),
+        persist_directory=os.getenv("CHROMA_PATH", "./chroma_store"),
+    )
+
+    # MMR search with relevance score threshold
+    results = vectorstore.similarity_search_with_relevance_scores(
+        query, k=n * 2  # fetch double, then filter
+    )
+
+    # Only keep articles with relevance score above 0.35
+    filtered = [
+        (doc, score) for doc, score in results if score >= 0.35
+    ]
+
+    # Sort by score descending, take top n
+    filtered.sort(key=lambda x: x[1], reverse=True)
+    filtered = filtered[:n]
 
     articles = []
-    for i, article_id in enumerate(results["ids"][0]):
-        meta = results["metadatas"][0][i]
-        full = await get_article_by_id(article_id)
-        if full:
-            articles.append({**full, **meta,
-                             "topics": json.loads(meta.get("topics", "[]"))})
-        else:
-            articles.append({
-                "id": article_id,
-                "title": meta.get("title", ""),
-                "summary": meta.get("summary", ""),
-                "url": meta.get("url", ""),
-                "source": meta.get("source", ""),
-                "published_at": meta.get("published_at", ""),
-                "topics": json.loads(meta.get("topics", "[]")),
-                "content": "",
-            })
+    for doc, score in filtered:
+        meta = doc.metadata
+        articles.append({
+            "id": meta.get("id", ""),
+            "title": meta.get("title", ""),
+            "summary": meta.get("summary", ""),
+            "url": meta.get("url", ""),
+            "source": meta.get("source", ""),
+            "published_at": meta.get("published_at", ""),
+            "topics": json.loads(meta.get("topics", "[]")),
+            "content": doc.page_content,
+            "relevance_score": round(score, 3),
+        })
+
     return articles

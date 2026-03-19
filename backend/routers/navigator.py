@@ -1,6 +1,7 @@
 """
 Navigator router — POST /briefing, POST /chat
 RAG-powered deep briefings and interactive follow-up chat.
+Uses LangChain with general knowledge fallback.
 """
 
 import json
@@ -18,7 +19,7 @@ from database import (
     append_message, get_articles_by_ids,
 )
 from ingestion import search_articles
-from llm import ask_llm, ask_llm_stream, build_rag_prompt
+from llm import ask_llm, ask_llm_stream, ask_with_fallback
 
 router = APIRouter(tags=["navigator"])
 logger = logging.getLogger(__name__)
@@ -103,6 +104,7 @@ async def create_briefing(req: BriefingRequest):
 async def chat_follow_up(req: ChatRequest):
     """
     Handle follow-up chat questions about a briefing.
+    Uses ask_with_fallback for general knowledge support.
     Supports both streaming and non-streaming responses.
     """
     try:
@@ -114,28 +116,39 @@ async def chat_follow_up(req: ChatRequest):
         # 2. Fetch full articles
         articles = await get_articles_by_ids(conversation["article_ids"])
 
-        # 3. Build prompt with history and articles
-        history = conversation.get("messages", [])
-        history_str = "\n".join(
-            f"{m['role'].upper()}: {m['content']}" for m in history[-10:]  # Last 10 messages
-        )
-        formatted_articles = _format_articles_for_prompt(articles)
+        # 3. Also search ChromaDB for additional context
+        additional_articles = await search_articles(req.message, n=5)
+        all_context_articles = articles + [
+            a for a in additional_articles
+            if a["id"] not in {ar.get("id", "") for ar in articles}
+        ]
 
-        chat_prompt = (
-            f"You are answering follow-up questions about a news briefing.\n"
-            f"Use ONLY the articles provided as your knowledge source.\n"
-            f"Cite sources when making specific claims.\n\n"
-            f"Previous conversation:\n{history_str}\n\n"
-            f"Articles:\n{formatted_articles}\n\n"
-            f"User question: {req.message}\n\n"
-            f"Provide a clear, well-structured answer:"
-        )
+        # 4. Build context from articles
+        formatted_articles = _format_articles_for_prompt(all_context_articles)
 
         # Save user message
         await append_message(req.conversation_id, "user", req.message)
 
         if req.stream:
-            # 4. Streaming response
+            # 5. Streaming response — use ask_with_fallback logic in prompt
+            history = conversation.get("messages", [])
+            history_str = "\n".join(
+                f"{m['role'].upper()}: {m['content']}" for m in history[-10:]
+            )
+
+            chat_prompt = (
+                f"You are an expert Indian business journalist assistant.\n"
+                f"Answer the user's question using the provided news context.\n"
+                f"If the context does not answer the question, use your general knowledge\n"
+                f"but clearly label it as: [General knowledge — not from today's news]\n\n"
+                f"Always cite news sources as [Source: publication] when using article content.\n"
+                f"Be concise and direct.\n\n"
+                f"Previous conversation:\n{history_str}\n\n"
+                f"News context:\n{formatted_articles}\n\n"
+                f"User question: {req.message}\n\n"
+                f"Your answer:"
+            )
+
             async def generate():
                 full_response = []
                 try:
@@ -161,13 +174,13 @@ async def chat_follow_up(req: ChatRequest):
                 },
             )
         else:
-            # 5. Non-streaming response
-            response_text = await ask_llm(chat_prompt)
+            # 6. Non-streaming response — use ask_with_fallback
+            response_text = await ask_with_fallback(req.message, formatted_articles)
             await append_message(req.conversation_id, "assistant", response_text)
 
             sources_used = [
                 SourceInfo(title=a["title"], url=a["url"], source=a["source"])
-                for a in articles[:5]
+                for a in all_context_articles[:5]
             ]
             return ChatResponse(response=response_text, sources_used=sources_used)
 

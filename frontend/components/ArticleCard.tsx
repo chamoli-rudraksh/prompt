@@ -46,8 +46,8 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
     <div className="article-card">
       <div className="article-card-header">
         <div className="article-source">
-          <span className="source-icon">{article.source.charAt(0)}</span>
           <span className="source-name">{article.source}</span>
+          <span className="source-dot">·</span>
           <span className="source-time">{timeAgo(article.published_at)}</span>
         </div>
         <button
@@ -73,17 +73,27 @@ export default function ArticleCard({ article, userId }: ArticleCardProps) {
 
       {article.why_it_matters && (
         <div className="why-it-matters">
-          <span className="why-label">Why it matters to you</span>
+          <span className="why-label">Why this matters to you</span>
           <p className="why-text">{article.why_it_matters}</p>
         </div>
       )}
 
-      <div className="article-tags">
-        {article.topics.map((topic) => (
-          <span key={topic} className="topic-tag">
-            {topic}
-          </span>
-        ))}
+      <div className="article-footer">
+        <div className="article-tags">
+          {article.topics.map((topic) => (
+            <span key={topic} className="topic-tag">
+              {topic}
+            </span>
+          ))}
+        </div>
+        <a
+          href={article.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="read-more-link"
+        >
+          Read more →
+        </a>
       </div>
     </div>
   );

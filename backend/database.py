@@ -63,10 +63,36 @@ async def init_db():
                 saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (user_id, article_id)
             );
+
+            CREATE TABLE IF NOT EXISTS blurb_cache (
+                article_id TEXT,
+                persona TEXT,
+                blurb TEXT,
+                PRIMARY KEY (article_id, persona)
+            );
         """)
         await db.commit()
     finally:
         await db.close()
+
+
+async def get_cached_blurb(article_id: str, persona: str) -> str | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "SELECT blurb FROM blurb_cache WHERE article_id=? AND persona=?",
+            (article_id, persona)
+        )
+        row = await cur.fetchone()
+        return row[0] if row else None
+
+
+async def save_blurb_cache(article_id: str, persona: str, blurb: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR REPLACE INTO blurb_cache VALUES (?,?,?)",
+            (article_id, persona, blurb)
+        )
+        await db.commit()
 
 
 # ─── User CRUD ───────────────────────────────────────────────────────────────

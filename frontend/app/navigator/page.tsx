@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import BriefingPanel from '@/components/BriefingPanel';
 import ChatPanel from '@/components/ChatPanel';
 import { createBriefing } from '@/lib/api';
 import { SourceInfo } from '@/types';
+
+const STORAGE_KEY = 'etnewsai_navigator_state';
 
 export default function NavigatorPage() {
   const [query, setQuery] = useState('');
@@ -13,6 +15,40 @@ export default function NavigatorPage() {
   const [conversationId, setConversationId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Restore state from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const state = JSON.parse(saved);
+        setQuery(state.query || '');
+        setBriefingText(state.briefingText || '');
+        setSources(state.sources || []);
+        setConversationId(state.conversationId || '');
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
+
+  // Save state to sessionStorage whenever it changes
+  const saveState = useCallback(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        query,
+        briefingText,
+        sources,
+        conversationId,
+      }));
+    } catch {
+      // ignore storage errors
+    }
+  }, [query, briefingText, sources, conversationId]);
+
+  useEffect(() => {
+    saveState();
+  }, [saveState]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,19 +76,13 @@ export default function NavigatorPage() {
 
   return (
     <div className="navigator-page">
-      <div className="navigator-header">
-        <h1 className="navigator-title">News Navigator</h1>
-        <p className="navigator-subtitle">
-          Get an AI-powered deep briefing on any topic
-        </p>
-      </div>
-
       <form onSubmit={handleSearch} className="navigator-search">
+        <span className="search-icon">🔍</span>
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask about any topic... e.g. RBI rate cut, Adani group"
+          placeholder="Search any business topic, company, or event..."
           className="navigator-input"
           id="navigator-search-input"
         />

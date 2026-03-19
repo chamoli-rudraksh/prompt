@@ -1,17 +1,49 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import StoryTimeline from '@/components/StoryTimeline';
 import PlayerGraph from '@/components/PlayerGraph';
 import SentimentChart from '@/components/SentimentChart';
 import { getStoryArc } from '@/lib/api';
 import { StoryArcResponse } from '@/types';
 
+const STORAGE_KEY = 'etnewsai_story_state';
+
 export default function StoryPage() {
   const [query, setQuery] = useState('');
   const [storyData, setStoryData] = useState<StoryArcResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Restore state from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const state = JSON.parse(saved);
+        setQuery(state.query || '');
+        if (state.storyData) setStoryData(state.storyData);
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
+
+  // Save state to sessionStorage whenever it changes
+  const saveState = useCallback(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        query,
+        storyData,
+      }));
+    } catch {
+      // ignore storage errors
+    }
+  }, [query, storyData]);
+
+  useEffect(() => {
+    saveState();
+  }, [saveState]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,14 +67,8 @@ export default function StoryPage() {
 
   return (
     <div className="story-page">
-      <div className="story-header">
-        <h1 className="story-title">Story Arc Tracker</h1>
-        <p className="story-subtitle">
-          Track the evolution of any ongoing story with AI-powered analysis
-        </p>
-      </div>
-
       <form onSubmit={handleSearch} className="story-search">
+        <span className="search-icon">🔍</span>
         <input
           type="text"
           value={query}
@@ -81,7 +107,7 @@ export default function StoryPage() {
           {/* Section 1: Summary */}
           {storyData.summary && (
             <div className="story-summary-card">
-              <h2 className="section-title">Story Summary</h2>
+              <div className="section-label">Story overview</div>
               <p className="story-summary-text">{storyData.summary}</p>
             </div>
           )}
@@ -105,23 +131,20 @@ export default function StoryPage() {
             </div>
           </div>
 
-          {/* Section 4: Contrarian View */}
-          {storyData.contrarian_view && (
+          {/* Section 4: Contrarian View + What to Watch */}
+          {(storyData.contrarian_view || storyData.what_to_watch.length > 0) && (
             <div className="contrarian-card">
-              <h3 className="contrarian-title">🔄 Another Perspective</h3>
-              <p className="contrarian-text">{storyData.contrarian_view}</p>
-            </div>
-          )}
-
-          {/* What to Watch */}
-          {storyData.what_to_watch.length > 0 && (
-            <div className="watch-card">
-              <h3 className="watch-title">👁️ What to Watch Next</h3>
-              <ul className="watch-list">
-                {storyData.what_to_watch.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
+              <div className="contrarian-label">Another perspective</div>
+              {storyData.contrarian_view && (
+                <p className="contrarian-text">{storyData.contrarian_view}</p>
+              )}
+              {storyData.what_to_watch.length > 0 && (
+                <ul className="watch-list">
+                  {storyData.what_to_watch.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>

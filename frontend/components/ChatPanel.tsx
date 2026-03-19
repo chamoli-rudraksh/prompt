@@ -13,12 +13,20 @@ export default function ChatPanel({ conversationId, sources }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   }, [messages]);
+
+  // Reset messages when conversation changes
+  useEffect(() => {
+    setMessages([]);
+  }, [conversationId]);
 
   const handleSend = async () => {
     if (!input.trim() || isStreaming || !conversationId) return;
@@ -106,14 +114,14 @@ export default function ChatPanel({ conversationId, sources }: ChatPanelProps) {
       <div className="chat-header">
         <h3>Follow-up Questions</h3>
         {sources.length > 0 && (
-          <span className="chat-source-count">{sources.length} sources available</span>
+          <span className="chat-source-count">{sources.length} sources</span>
         )}
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesContainerRef}>
         {messages.length === 0 && (
           <div className="chat-empty">
-            <p>Ask follow-up questions about the briefing above.</p>
+            <p>Ask follow-up questions about the briefing.</p>
             <div className="chat-suggestions">
               <button onClick={() => setInput('What are the key risks?')} className="suggestion-btn">
                 Key risks?
@@ -136,21 +144,26 @@ export default function ChatPanel({ conversationId, sources }: ChatPanelProps) {
                   <span></span><span></span><span></span>
                 </div>
               )}
+              {msg.role === 'assistant' && isStreaming && i === messages.length - 1 && msg.content && (
+                <span className="streaming-cursor">▊</span>
+              )}
             </div>
-            {msg.role === 'assistant' && msg.content && (
-              <div className="bubble-meta">
-                Sources used: {sources.length} articles
+            {msg.role === 'assistant' && msg.content && !isStreaming && (
+              <div className="bubble-sources">
+                {sources.slice(0, 3).map((s, si) => (
+                  <a key={si} href={s.url} target="_blank" rel="noopener noreferrer" className="source-chip">
+                    {s.source}
+                  </a>
+                ))}
               </div>
             )}
           </div>
         ))}
-        <div ref={messagesEndRef} />
       </div>
 
       <div className="chat-input-area">
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -158,6 +171,7 @@ export default function ChatPanel({ conversationId, sources }: ChatPanelProps) {
           disabled={!conversationId || isStreaming}
           className="chat-input"
           id="chat-input"
+          rows={2}
         />
         <button
           onClick={handleSend}
