@@ -24,9 +24,10 @@ def get_llm():
             model=LLM_MODEL,
             base_url=OLLAMA_BASE_URL,
             temperature=0.2,
-            num_predict=1024,
+            num_predict=2000,
         )
     return _llm
+
 
 # ── Embeddings (reused across all calls) ─────────────────────────
 _embeddings = None
@@ -51,7 +52,8 @@ def get_vectorstore():
 _memories: dict[str, ConversationBufferWindowMemory] = {}
 
 def get_memory(conversation_id: str) -> ConversationBufferWindowMemory:
-    if conversation_id not in _memories:
+    if conve
+from langchain_google_genai import ChatGoogleGenerativeAIrsation_id not in _memories:
         _memories[conversation_id] = ConversationBufferWindowMemory(
             k=6,
             memory_key="chat_history",
