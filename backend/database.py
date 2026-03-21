@@ -70,10 +70,25 @@ async def init_db():
                 blurb TEXT,
                 PRIMARY KEY (article_id, persona)
             );
+
+            CREATE TABLE IF NOT EXISTS agent_logs (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_name  TEXT NOT NULL,
+                task        TEXT NOT NULL,
+                user_id     TEXT,
+                input_data  TEXT,
+                output_data TEXT,
+                status      TEXT NOT NULL,
+                error       TEXT,
+                retry_count INTEGER DEFAULT 0,
+                duration_ms INTEGER,
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         """)
         await db.commit()
     finally:
         await db.close()
+
 
 
 async def get_cached_blurb(article_id: str, persona: str) -> str | None:
@@ -368,3 +383,46 @@ async def get_recent_articles(limit: int = 50) -> list:
             result.append(d)
         return result
 
+
+
+async def log_agent_action(
+    agent_name: str,
+    task: str,
+    status: str,
+    user_id: str = None,
+    input_data: dict = None,
+    output_data: dict = None,
+    error: str = None,
+    retry_count: int = 0,
+    duration_ms: int = 0,
+):
+    import json
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT INTO agent_logs
+            (agent_name, task, user_id, input_data, output_data,
+             status, error, retry_count, duration_ms)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            agent_name,
+            task,
+            user_id,
+            json.dumps(input_data or {}),
+            json.dumps(output_data or {}),
+            status,
+            error,
+            retry_count,
+            duration_ms,
+        ))
+        await db.commit()
+
+
+async def get_agent_logs(limit: int = 100) -> list:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("""
+            SELECT * FROM agent_logs
+            ORDER BY created_at DESC LIMIT ?
+        """, (limit,))
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
