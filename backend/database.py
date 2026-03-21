@@ -29,11 +29,17 @@ async def init_db():
     try:
         await db.executescript("""
             CREATE TABLE IF NOT EXISTS users (
-                id TEXT PRIMARY KEY,
-                name TEXT,
-                persona TEXT,
-                interests TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                id            TEXT PRIMARY KEY,
+                name          TEXT,
+                email         TEXT UNIQUE NOT NULL,
+                password      TEXT DEFAULT '',
+                persona       TEXT DEFAULT '',
+                interests     TEXT DEFAULT '[]',
+                auth_provider TEXT DEFAULT 'email',
+                google_id     TEXT UNIQUE,
+                picture       TEXT,
+                refresh_token TEXT,
+                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS articles (
@@ -426,3 +432,78 @@ async def get_agent_logs(limit: int = 100) -> list:
         """, (limit,))
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+
+async def get_user_by_email(email: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM users WHERE email = ?", (email,)
+        )
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def get_user_by_id(user_id: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)
+        )
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def get_user_by_google_id(google_id: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM users WHERE google_id = ?", (google_id,)
+        )
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def get_user_by_refresh_token(token: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM users WHERE refresh_token = ?", (token,)
+        )
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def create_user_email(user_id, name, email, hashed_pw, persona, interests):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT INTO users (id, name, email, password, persona, interests, auth_provider)
+            VALUES (?, ?, ?, ?, ?, ?, 'email')
+        """, (user_id, name, email, hashed_pw, persona, json.dumps(interests)))
+        await db.commit()
+
+
+async def create_user_google(user_id, name, email, google_id, picture):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT INTO users
+            (id, name, email, google_id, picture, auth_provider, password)
+            VALUES (?, ?, ?, ?, ?, 'google', '')
+        """, (user_id, name, email, google_id, picture))
+        await db.commit()
+
+
+async def update_user_profile(user_id: str, persona: str, interests: list):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            UPDATE users SET persona = ?, interests = ? WHERE id = ?
+        """, (persona, json.dumps(interests), user_id))
+        await db.commit()
+
+
+async def save_refresh_token(user_id: str, token: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET refresh_token = ? WHERE id = ?",
+            (token, user_id)
+        )
+        await db.commit()

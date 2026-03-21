@@ -6,7 +6,7 @@ Parallel blurb generation with caching for speed.
 import asyncio
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 
 from models.schemas import ArticleResponse, FeedResponse, SaveArticleRequest
 from database import (
@@ -15,6 +15,7 @@ from database import (
 )
 from ingestion import search_articles
 from llm import ask_llm
+from auth import get_current_user
 
 router = APIRouter(tags=["feed"])
 logger = logging.getLogger(__name__)
@@ -68,7 +69,10 @@ def keyword_overlaps(article: dict, interests: list[str]) -> bool:
 
 
 @router.get("/feed", response_model=FeedResponse)
-async def get_feed(user_id: str = Query(...), limit: int = Query(20, le=50)):
+async def get_feed(
+    limit: int = Query(20, le=50),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Get personalized feed for a user.
     1. Fetch user profile
@@ -78,6 +82,7 @@ async def get_feed(user_id: str = Query(...), limit: int = Query(20, le=50)):
     5. Generate blurbs in parallel with caching
     """
     # 1. Get user profile
+    user_id = current_user["user_id"]
     user = await get_user(user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -129,10 +134,19 @@ async def get_feed(user_id: str = Query(...), limit: int = Query(20, le=50)):
 
 
 @router.post("/saved-articles")
-async def handle_save_article(req: SaveArticleRequest):
+async def handle_save_article(
+    req: SaveArticleRequest,
+    current_user: dict = Depends(get_current_user)
+):
     """Save an article to user's saved list."""
     try:
-        await db_save_user_article(req.user_id, req.article_id)
+        user_id = current_user["user_id"]
+        # Allow saving for own user_id, ignoring req.user_id if we want stricter security,
+        # but for compatibility, we just enforce the Depends.
+        if req.user_id and req.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Cannot save articles for another user")
+        
+        await db_save_user_article(user_id, req.article_id)
         return {"status": "saved"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save article: {str(e)}")

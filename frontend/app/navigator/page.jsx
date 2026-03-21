@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import BriefingPanel from '@/components/BriefingPanel';
 import ChatPanel from '@/components/ChatPanel';
 import { createBriefing } from '@/lib/api';
+import AuthGuard from '@/components/AuthGuard';
+import { getUser } from '@/lib/auth';
 
 const STORAGE_KEY = 'etnewsai_navigator_state';
 
@@ -63,13 +65,17 @@ export default function NavigatorPage() {
     setConversationId('');
 
     try {
-      const userId = localStorage.getItem('etnewsai_user_id') || 'anonymous';
+      const activeUser = getUser();
+      const userId = activeUser?.id || 'anonymous';
       const data = await createBriefing(query, userId);
       setBriefingText(data.briefing_text);
       setSources(data.sources);
       setConversationId(data.conversation_id);
     } catch (err) {
       console.error('Briefing error:', err);
+      if (err?.response?.status === 401) {
+        // Handled basically by tokens being clear or missing, but just in case
+      }
       setError('Failed to generate briefing. Please check backend connection.');
     } finally {
       setLoading(false);
@@ -77,57 +83,59 @@ export default function NavigatorPage() {
   };
 
   return (
-    <div className="navigator-page">
-      <form onSubmit={handleSearch} className="navigator-search">
-        <span className="search-icon">🔍</span>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search any business topic, company, or event..."
-          className="navigator-input"
-          id="navigator-search-input"
-        />
-        <button
-          type="submit"
-          disabled={!query.trim() || loading}
-          className="navigator-search-btn"
-          id="navigator-search-btn"
-        >
-          {loading ? 'Analyzing...' : 'Get Briefing'}
-        </button>
-      </form>
+    <AuthGuard>
+      <div className="navigator-page">
+        <form onSubmit={handleSearch} className="navigator-search">
+          <span className="search-icon">🔍</span>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search any business topic, company, or event..."
+            className="navigator-input"
+            id="navigator-search-input"
+          />
+          <button
+            type="submit"
+            disabled={!query.trim() || loading}
+            className="navigator-search-btn"
+            id="navigator-search-btn"
+          >
+            {loading ? 'Analyzing...' : 'Get Briefing'}
+          </button>
+        </form>
 
-      {error && (
-        <div className="navigator-banner">
-          <span>⚠️ {error}</span>
-        </div>
-      )}
-
-      {loading && (
-        <div className="navigator-loading-state">
-          <div className="loading-dots">
-            <span></span><span></span><span></span>
+        {error && (
+          <div className="navigator-banner">
+            <span>⚠️ {error}</span>
           </div>
-          <p>Gathering sources and building your briefing...</p>
-        </div>
-      )}
+        )}
 
-      <div className="navigator-layout">
-        <div className="navigator-briefing">
-          <BriefingPanel
-            briefingText={briefingText}
-            sources={sources}
-            loading={loading}
-          />
-        </div>
-        <div className="navigator-chat">
-          <ChatPanel
-            conversationId={conversationId}
-            sources={sources}
-          />
+        {loading && (
+          <div className="navigator-loading-state">
+            <div className="loading-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <p>Gathering sources and building your briefing...</p>
+          </div>
+        )}
+
+        <div className="navigator-layout">
+          <div className="navigator-briefing">
+            <BriefingPanel
+              briefingText={briefingText}
+              sources={sources}
+              loading={loading}
+            />
+          </div>
+          <div className="navigator-chat">
+            <ChatPanel
+              conversationId={conversationId}
+              sources={sources}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </AuthGuard>
   );
 }

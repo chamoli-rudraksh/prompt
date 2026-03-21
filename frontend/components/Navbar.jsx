@@ -3,21 +3,18 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
+import { getUser, logout, apiFetch } from '@/lib/auth';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const [userName, setUserName] = useState('');
-  const [persona, setPersona] = useState('');
+  const [user, setUser] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setTheme] = useState('light');
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    const name = localStorage.getItem('etnewsai_user_name');
-    const p = localStorage.getItem('etnewsai_persona');
-    if (name !== null) setUserName(name);
-    if (p) setPersona(p);
+    setUser(getUser());
 
     // Load saved theme
     const saved = localStorage.getItem('etnewsai_theme');
@@ -33,8 +30,7 @@ export default function Navbar() {
   // Re-read user info when storage changes (e.g. after onboarding)
   useEffect(() => {
     const handler = () => {
-      setUserName(localStorage.getItem('etnewsai_user_name') || '');
-      setPersona(localStorage.getItem('etnewsai_persona') || '');
+      setUser(getUser());
     };
     window.addEventListener('storage', handler);
     window.addEventListener('user-updated', handler);
@@ -62,19 +58,15 @@ export default function Navbar() {
     localStorage.setItem('etnewsai_theme', next);
   };
 
-  const handleChangeUser = () => {
-    localStorage.removeItem('etnewsai_user_id');
-    localStorage.removeItem('etnewsai_user_name');
-    localStorage.removeItem('etnewsai_persona');
-    localStorage.removeItem('etnewsai_demo');
-    window.location.href = '/';
+  const handleLogout = () => {
+    logout();
   };
 
   const handleRefreshFeed = async () => {
     try {
       const API_URL =
         process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      await fetch(`${API_URL}/admin/refresh-news`, { method: 'POST' });
+      await apiFetch(`${API_URL}/admin/refresh-news`, { method: 'POST' });
       window.dispatchEvent(new CustomEvent('refresh-feed'));
     } catch (err) {
       console.error('Refresh failed:', err);
@@ -132,21 +124,21 @@ export default function Navbar() {
             {theme === 'light' ? '🌙' : '☀️'}
           </button>
 
-          {userName && (
+          {user && (
             <>
               <div
                 className="user-avatar"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                title={userName}
+                title={user.full_name || user.email || 'User'}
               >
-                {userName.charAt(0).toUpperCase()}
+                {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
               </div>
 
               {dropdownOpen && (
                 <div className="user-dropdown">
                   <div className="dropdown-header">
-                    <div className="dropdown-name">{userName}</div>
-                    <div className="dropdown-persona">{persona}</div>
+                    <div className="dropdown-name">{user.full_name || user.email}</div>
+                    <div className="dropdown-persona">{user.persona || 'No persona set'}</div>
                   </div>
                   <button
                     className="dropdown-item"
@@ -156,9 +148,9 @@ export default function Navbar() {
                   </button>
                   <button
                     className="dropdown-item danger"
-                    onClick={handleChangeUser}
+                    onClick={handleLogout}
                   >
-                    Change user
+                    Sign out
                   </button>
                 </div>
               )}

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ArticleCard from '@/components/ArticleCard';
 import { getFeed } from '@/lib/api';
+import AuthGuard from '@/components/AuthGuard';
+import { apiFetch, getUser, logout } from '@/lib/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -18,16 +20,15 @@ export default function FeedPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    const id = localStorage.getItem('etnewsai_user_id');
-    const name = localStorage.getItem('etnewsai_user_name');
-    const p = localStorage.getItem('etnewsai_persona');
-
-    if (!id) {
-      router.push('/');
+    // AuthGuard ensures they are logged in.
+    const user = getUser();
+    if (!user) {
       return;
     }
 
-    setUserId(id);
+    const { id, name, persona: p } = user;
+
+    setUserId(id || '');
     setUserName(name || '');
     setPersona(p || '');
 
@@ -52,12 +53,8 @@ export default function FeedPage() {
       if (data.user_name) setUserName(data.user_name);
     } catch (err) {
       console.error('Feed error:', err);
-      if (err?.response?.status === 404) {
-        localStorage.removeItem('etnewsai_user_id');
-        localStorage.removeItem('etnewsai_user_name');
-        localStorage.removeItem('etnewsai_persona');
-        localStorage.removeItem('etnewsai_demo');
-        router.push('/');
+      if (err?.response?.status === 404 || err?.response?.status === 401) {
+        logout();
         return;
       }
       setError('Unable to load feed. Please check backend connection.');
@@ -69,7 +66,7 @@ export default function FeedPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetch(`${API_URL}/admin/refresh-news`, { method: 'POST' });
+      await apiFetch(`${API_URL}/admin/refresh-news`, { method: 'POST' });
       await new Promise((r) => setTimeout(r, 4000));
       await loadFeed(userId);
     } finally {
@@ -85,74 +82,76 @@ export default function FeedPage() {
   };
 
   return (
-    <div className="feed-page">
-      <div className="feed-header">
-        <div className="feed-header-left">
-          <h1 className="feed-greeting">
-            {getGreeting()}, {userName || 'there'}{' '}
-            <span className="feed-greeting-sub">
-              Here&apos;s what matters to you today.
-            </span>
-          </h1>
-          {persona && (
-            <span className="feed-persona-badge">{persona}</span>
-          )}
-        </div>
-        <div className="feed-header-right">
-          <button
-            className="btn-accent"
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            {refreshing ? (
-              <>Refreshing... <span className="spinner" /></>
-            ) : (
-              'Refresh feed'
+    <AuthGuard>
+      <div className="feed-page">
+        <div className="feed-header">
+          <div className="feed-header-left">
+            <h1 className="feed-greeting">
+              {getGreeting()}, {userName || 'there'}{' '}
+              <span className="feed-greeting-sub">
+                Here&apos;s what matters to you today.
+              </span>
+            </h1>
+            {persona && (
+              <span className="feed-persona-badge">{persona}</span>
             )}
-          </button>
+          </div>
+          <div className="feed-header-right">
+            <button
+              className="btn-accent"
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <>Refreshing... <span className="spinner" /></>
+              ) : (
+                'Refresh feed'
+              )}
+            </button>
+          </div>
         </div>
-      </div>
 
-      {error && (
-        <div className="feed-banner">
-          <span>⚠️ {error}</span>
-        </div>
-      )}
+        {error && (
+          <div className="feed-banner">
+            <span>⚠️ {error}</span>
+          </div>
+        )}
 
-      {loading ? (
-        <div className="feed-grid">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="skeleton-card">
-              <div className="skeleton-line short"></div>
-              <div className="skeleton-line"></div>
-              <div className="skeleton-line"></div>
-              <div className="skeleton-line medium"></div>
-              <div className="skeleton-box"></div>
-              <div className="skeleton-tags">
-                <div className="skeleton-tag"></div>
-                <div className="skeleton-tag"></div>
+        {loading ? (
+          <div className="feed-grid">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="skeleton-card">
+                <div className="skeleton-line short"></div>
+                <div className="skeleton-line"></div>
+                <div className="skeleton-line"></div>
+                <div className="skeleton-line medium"></div>
+                <div className="skeleton-box"></div>
+                <div className="skeleton-tags">
+                  <div className="skeleton-tag"></div>
+                  <div className="skeleton-tag"></div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : articles.length === 0 ? (
-        <div className="feed-empty">
-          <h2>News is being fetched right now</h2>
-          <p>
-            Articles are being ingested from live sources. Click &quot;Refresh feed&quot; above to check again.
-          </p>
-        </div>
-      ) : (
-        <div className="feed-grid">
-          {articles.map((article) => (
-            <ArticleCard
-              key={article.id}
-              article={article}
-              userId={userId}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+            ))}
+          </div>
+        ) : articles.length === 0 ? (
+          <div className="feed-empty">
+            <h2>News is being fetched right now</h2>
+            <p>
+              Articles are being ingested from live sources. Click &quot;Refresh feed&quot; above to check again.
+            </p>
+          </div>
+        ) : (
+          <div className="feed-grid">
+            {articles.map((article) => (
+              <ArticleCard
+                key={article.id}
+                article={article}
+                userId={userId}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </AuthGuard>
   );
 }

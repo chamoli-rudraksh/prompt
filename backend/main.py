@@ -11,6 +11,8 @@ from database import init_db, get_agent_logs
 from ingestion import ingest_all_feeds
 from scheduler import start_scheduler
 from routers import feed, navigator, story, users
+from routers.auth import router as auth_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,6 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router,       prefix="/auth", tags=["auth"])
 app.include_router(users.router,      tags=["users"])
 app.include_router(feed.router,       tags=["feed"])
 app.include_router(navigator.router,  tags=["navigator"])

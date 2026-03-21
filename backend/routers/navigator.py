@@ -6,8 +6,10 @@ Agent-based briefings and interactive follow-up chat.
 import json
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
+
+from auth import get_current_user
 
 from models.schemas import (
     BriefingRequest, BriefingResponse, SourceInfo,
@@ -26,17 +28,21 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/briefing")
-async def create_briefing(req: BriefingRequest):
+async def create_briefing(
+    req: BriefingRequest,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Generate a deep AI briefing on any topic using the LangGraph agent pipeline.
     1. RelevanceAgent searches ChromaDB for matching articles
     2. BriefingAgent generates structured briefing via LLM
     """
     try:
+        user_id = current_user["user_id"]
         state = make_initial_state(
             task="briefing",
             query=req.topic,
-            user_id=req.user_id,
+            user_id=user_id,
         )
         final_state = await briefing_graph.ainvoke(state)
 
@@ -46,7 +52,7 @@ async def create_briefing(req: BriefingRequest):
         conv_id = ""
         if relevant:
             conv_id = await create_conversation(
-                user_id=req.user_id,
+                user_id=user_id,
                 topic=req.topic,
                 article_ids=article_ids,
             )
@@ -68,7 +74,10 @@ async def create_briefing(req: BriefingRequest):
 
 
 @router.post("/chat")
-async def chat_follow_up(req: ChatRequest):
+async def chat_follow_up(
+    req: ChatRequest,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Handle follow-up chat questions about a briefing.
     Uses ask_with_fallback for general knowledge support.
@@ -77,6 +86,11 @@ async def chat_follow_up(req: ChatRequest):
         conversation = await get_conversation(req.conversation_id)
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Additional security: optionally check if the conversation belongs to the user
+        # user_id = current_user["user_id"]
+        # if conversation.get("user_id") != user_id:
+        #     raise HTTPException(status_code=403, detail="Unauthorized")
 
         articles = await get_articles_by_ids(conversation["article_ids"])
         additional_articles = await search_articles(req.message, n=5)

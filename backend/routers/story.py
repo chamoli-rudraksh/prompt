@@ -9,8 +9,9 @@ import logging
 import traceback
 import os
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
+from auth import get_current_user
 from models.schemas import (
     StoryArcRequest, StoryArcResponse,
     ArticleResponse, TimelineEvent, Player, SentimentPoint,
@@ -55,7 +56,10 @@ async def search_story_articles(query: str, n: int = 25) -> list:
 
 
 @router.post("/story-arc", response_model=StoryArcResponse)
-async def get_story_arc(req: StoryArcRequest):
+async def get_story_arc(
+    req: StoryArcRequest,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Analyze a story and return a structured arc with timeline, players, sentiment, etc.
     Uses long-term collection for multi-day tracking.
