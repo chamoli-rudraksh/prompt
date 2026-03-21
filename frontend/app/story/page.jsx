@@ -7,6 +7,7 @@ import SentimentChart from '@/components/SentimentChart';
 import { getStoryArc } from '@/lib/api';
 import AuthGuard from '@/components/AuthGuard';
 import { getUser } from '@/lib/auth';
+import SearchHistory, { saveSearch } from '@/components/SearchHistory';
 
 const STORAGE_KEY = 'etnewsai_story_state';
 
@@ -50,8 +51,10 @@ export default function StoryPage() {
   }, [saveState]);
 
   const handleSearch = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!query.trim()) return;
+
+    saveSearch(query);
 
     setLoading(true);
     setError('');
@@ -68,6 +71,15 @@ export default function StoryPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleHistorySelect = (q) => {
+    setQuery(q);
+    // Trigger search after state update
+    setTimeout(() => {
+      const form = document.querySelector('.story-search');
+      if (form) form.requestSubmit();
+    }, 0);
   };
 
   return (
@@ -92,6 +104,8 @@ export default function StoryPage() {
             {loading ? 'Analyzing...' : 'Track Story'}
           </button>
         </form>
+
+        <SearchHistory onSelect={handleHistorySelect} />
 
         {error && (
           <div className="story-banner">

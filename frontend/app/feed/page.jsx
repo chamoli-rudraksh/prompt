@@ -9,6 +9,80 @@ import { apiFetch, getUser, logout } from '@/lib/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+function TrendingBar({ onTopicClick }) {
+  const [topics, setTopics] = useState([]);
+
+  useEffect(() => {
+    apiFetch(`${API_URL}/trending`)
+      .then((r) => r.json())
+      .then((d) => setTopics(d.topics || []))
+      .catch(() => {});
+  }, []);
+
+  if (!topics.length) return null;
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 500,
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          marginBottom: 10,
+        }}
+      >
+        Trending today
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          overflowX: 'auto',
+          paddingBottom: 4,
+          flexWrap: 'nowrap',
+        }}
+      >
+        {topics.map((t) => (
+          <button
+            key={t.name}
+            onClick={() => onTopicClick(t.name)}
+            style={{
+              padding: '5px 14px',
+              borderRadius: 20,
+              whiteSpace: 'nowrap',
+              border: '1px solid var(--border)',
+              background: 'var(--pill-bg)',
+              cursor: 'pointer',
+              fontSize: 12,
+              color: 'var(--text-primary)',
+              fontWeight: 500,
+              flexShrink: 0,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--et-navy)';
+              e.currentTarget.style.color = 'white';
+              e.currentTarget.style.border = '1px solid var(--et-navy)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--pill-bg)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+              e.currentTarget.style.border = '1px solid var(--border)';
+            }}
+          >
+            {t.name}
+            <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' }}>
+              {t.count}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function FeedPage() {
   const router = useRouter();
   const [articles, setArticles] = useState([]);
@@ -20,22 +94,16 @@ export default function FeedPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    // AuthGuard ensures they are logged in.
     const user = getUser();
-    if (!user) {
-      return;
-    }
+    if (!user) return;
 
     const { id, name, persona: p } = user;
-
     setUserId(id || '');
     setUserName(name || '');
     setPersona(p || '');
-
     loadFeed(id);
   }, [router]);
 
-  // Listen for refresh-feed event from navbar dropdown
   useEffect(() => {
     const handler = () => {
       if (userId) handleRefresh();
@@ -74,6 +142,10 @@ export default function FeedPage() {
     }
   };
 
+  const handleTopicClick = (topic) => {
+    router.push(`/navigator?q=${encodeURIComponent(topic)}`);
+  };
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
@@ -110,6 +182,8 @@ export default function FeedPage() {
             </button>
           </div>
         </div>
+
+        <TrendingBar onTopicClick={handleTopicClick} />
 
         {error && (
           <div className="feed-banner">

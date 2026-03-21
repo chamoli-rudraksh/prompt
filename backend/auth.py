@@ -6,7 +6,17 @@ from passlib.context import CryptContext
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-SECRET_KEY   = os.getenv("JWT_SECRET", "change-this")
+import sys
+
+SECRET_KEY = os.getenv("JWT_SECRET", "")
+
+if len(SECRET_KEY) < 32:
+    print(
+        "FATAL: JWT_SECRET is too short or missing. "
+        'Run: python3 -c "import secrets; print(secrets.token_hex(32))"'
+    )
+    sys.exit(1)
+
 ALGORITHM    = "HS256"
 ACCESS_EXPIRE_MINUTES = 60 * 24      # 1 day
 REFRESH_EXPIRE_DAYS   = 30

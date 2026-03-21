@@ -1,18 +1,35 @@
 'use client';
 
-import { saveArticle } from '@/lib/api';
 import { useState } from 'react';
+import AudioButton from './AudioButton';
+import { apiFetch } from '@/lib/auth';
+
+const API = process.env.NEXT_PUBLIC_API_URL;
+
+function readingTime(text) {
+  if (!text) return '1 min read';
+  const words = text.trim().split(/\s+/).length;
+  const mins = Math.max(1, Math.round(words / 200));
+  return `${mins} min read`;
+}
 
 export default function ArticleCard({ article, userId }) {
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(article.is_saved || false);
   const [saving, setSaving] = useState(false);
 
-  const handleSave = async () => {
-    if (!userId || saved) return;
+  const toggleSave = async () => {
     setSaving(true);
     try {
-      await saveArticle({ user_id: userId, article_id: article.id });
-      setSaved(true);
+      const url = `${API}/articles/save`;
+      if (saved) {
+        await apiFetch(`${url}/${article.id}`, { method: 'DELETE' });
+      } else {
+        await apiFetch(url, {
+          method: 'POST',
+          body: JSON.stringify({ article_id: article.id }),
+        });
+      }
+      setSaved(!saved);
     } catch (error) {
       console.error('Failed to save article:', error);
     } finally {
@@ -43,14 +60,25 @@ export default function ArticleCard({ article, userId }) {
           <span className="source-name">{article.source}</span>
           <span className="source-dot">·</span>
           <span className="source-time">{timeAgo(article.published_at)}</span>
+          <span className="source-dot">·</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            {readingTime(article.content || article.summary)}
+          </span>
         </div>
         <button
-          onClick={handleSave}
-          disabled={saving || saved}
+          onClick={toggleSave}
+          disabled={saving}
           className={`save-btn ${saved ? 'saved' : ''}`}
-          title={saved ? 'Saved' : 'Save article'}
+          title={saved ? 'Unsave' : 'Save article'}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 16,
+            color: saved ? 'var(--et-coral)' : 'var(--text-muted)',
+          }}
         >
-          {saved ? '✓' : '♡'}
+          {saved ? '★' : '☆'}
         </button>
       </div>
 
@@ -65,6 +93,12 @@ export default function ArticleCard({ article, userId }) {
 
       <p className="article-summary">{article.summary}</p>
 
+      {article.summary && (
+        <div style={{ marginBottom: 12 }}>
+          <AudioButton text={article.summary} />
+        </div>
+      )}
+
       {article.why_it_matters && (
         <div className="why-it-matters">
           <span className="why-label">Why this matters to you</span>
@@ -74,7 +108,7 @@ export default function ArticleCard({ article, userId }) {
 
       <div className="article-footer">
         <div className="article-tags">
-          {article.topics.map((topic) => (
+          {(article.topics || []).map((topic) => (
             <span key={topic} className="topic-tag">
               {topic}
             </span>

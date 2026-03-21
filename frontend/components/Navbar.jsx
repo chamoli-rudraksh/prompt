@@ -78,6 +78,8 @@ export default function Navbar() {
     { href: '/feed', label: 'Feed' },
     { href: '/navigator', label: 'Navigator' },
     { href: '/story', label: 'Story Arc' },
+    { href: '/dashboard', label: 'Dashboard' },
+    { href: '/saved', label: 'Saved' },
   ];
 
   return (

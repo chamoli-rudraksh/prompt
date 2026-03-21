@@ -1,7 +1,9 @@
 import uuid, json, os
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from database import (
     get_user_by_email, get_user_by_google_id, get_user_by_refresh_token,
     create_user_email, create_user_google, update_user_profile,
@@ -16,6 +18,8 @@ from auth import (
 router = APIRouter()
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
+limiter = Limiter(key_func=get_remote_address)
+
 
 def user_response(user: dict) -> dict:
     return {
@@ -27,6 +31,19 @@ def user_response(user: dict) -> dict:
         "picture":   user.get("picture", ""),
         "auth_provider": user.get("auth_provider", "email"),
     }
+
+
+def _set_refresh_cookie(response: Response, refresh: str):
+    """Helper to set the httpOnly refresh-token cookie."""
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh,
+        httponly=True,
+        secure=False,        # change to True when deploying to HTTPS
+        samesite="lax",
+        max_age=30 * 24 * 60 * 60,
+        path="/auth/refresh",
+    )
 
 
 # ── Email / Password ──────────────────────────────────────────
@@ -42,16 +59,14 @@ class LoginBody(BaseModel):
     email:    EmailStr
     password: str
 
-class RefreshBody(BaseModel):
-    refresh_token: str
-
 class ProfileBody(BaseModel):
     persona:   str
     interests: list[str]
 
 
 @router.post("/register")
-async def register(body: RegisterBody):
+@limiter.limit("3/minute")
+async def register(request: Request, body: RegisterBody, response: Response):
     if await get_user_by_email(body.email):
         raise HTTPException(400, "Email already registered")
     if len(body.password) < 6:
@@ -67,15 +82,19 @@ async def register(body: RegisterBody):
     refresh = create_refresh_token(user_id)
     await save_refresh_token(user_id, refresh)
 
+    _set_refresh_cookie(response, refresh)
+
     user = await get_user_by_id(user_id)
     return {
-        "access_token": access, "refresh_token": refresh,
-        "token_type": "bearer", "user": user_response(user)
+        "access_token": access,
+        "token_type": "bearer",
+        "user": user_response(user)
     }
 
 
 @router.post("/login")
-async def login(body: LoginBody):
+@limiter.limit("5/minute")
+async def login(request: Request, body: LoginBody, response: Response):
     user = await get_user_by_email(body.email)
     if not user:
         raise HTTPException(401, "Invalid email or password")
@@ -88,22 +107,29 @@ async def login(body: LoginBody):
     refresh = create_refresh_token(user["id"])
     await save_refresh_token(user["id"], refresh)
 
+    _set_refresh_cookie(response, refresh)
+
     return {
-        "access_token": access, "refresh_token": refresh,
-        "token_type": "bearer", "user": user_response(user)
+        "access_token": access,
+        "token_type": "bearer",
+        "user": user_response(user)
     }
 
 
 @router.post("/refresh")
-async def refresh_token(body: RefreshBody):
+async def refresh_token(request: Request, response: Response):
+    refresh = request.cookies.get("refresh_token")
+    if not refresh:
+        raise HTTPException(401, "No refresh token")
+
     try:
-        payload = decode_token(body.refresh_token)
+        payload = decode_token(refresh)
         if payload.get("type") != "refresh":
             raise HTTPException(401, "Invalid token type")
     except Exception:
         raise HTTPException(401, "Invalid or expired refresh token")
 
-    user = await get_user_by_refresh_token(body.refresh_token)
+    user = await get_user_by_refresh_token(refresh)
     if not user:
         raise HTTPException(401, "Token not recognised")
 
@@ -111,25 +137,28 @@ async def refresh_token(body: RefreshBody):
     new_refresh = create_refresh_token(user["id"])
     await save_refresh_token(user["id"], new_refresh)
 
+    _set_refresh_cookie(response, new_refresh)
+
     return {
         "access_token": new_access,
-        "refresh_token": new_refresh,
         "token_type": "bearer"
     }
 
 
 @router.post("/logout")
-async def logout(body: RefreshBody):
-    user = await get_user_by_refresh_token(body.refresh_token)
-    if user:
-        await save_refresh_token(user["id"], "")
+async def logout(request: Request, response: Response):
+    refresh = request.cookies.get("refresh_token")
+    if refresh:
+        user = await get_user_by_refresh_token(refresh)
+        if user:
+            await save_refresh_token(user["id"], "")
+    response.delete_cookie("refresh_token", path="/auth/refresh")
     return {"message": "Logged out"}
 
 
 @router.post("/update-profile")
 async def update_profile(body: ProfileBody, request: Request):
     from auth import get_current_user
-    from fastapi.security import HTTPAuthorizationCredentials
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(401, "Not authenticated")
@@ -144,14 +173,19 @@ async def update_profile(body: ProfileBody, request: Request):
 # ── Google OAuth ──────────────────────────────────────────────
 
 @router.get("/google")
-async def google_login():
+@limiter.limit("10/minute")
+async def google_login(request: Request):
     """Redirect user to Google's login page."""
     url = get_google_auth_url()
     return RedirectResponse(url)
 
 
 @router.get("/google/callback")
-async def google_callback(code: str = None, error: str = None):
+async def google_callback(
+    code: str = None,
+    error: str = None,
+    response: Response = None
+):
     """Google redirects here after user approves."""
     if error or not code:
         return RedirectResponse(f"{FRONTEND_URL}/auth?error=google_denied")
@@ -173,9 +207,6 @@ async def google_callback(code: str = None, error: str = None):
         # Check if email exists with a different provider
         existing = await get_user_by_email(email)
         if existing:
-            # Link Google to existing account
-            await save_refresh_token(existing["id"], "")
-            # Redirect with message to link accounts
             return RedirectResponse(
                 f"{FRONTEND_URL}/auth?error=email_exists&email={email}"
             )
@@ -183,7 +214,6 @@ async def google_callback(code: str = None, error: str = None):
         user_id = str(uuid.uuid4())
         await create_user_google(user_id, name, email, google_id, picture)
         user = await get_user_by_id(user_id)
-        # New Google user needs to complete profile (persona + interests)
         needs_profile = True
     else:
         needs_profile = not user.get("persona")
@@ -192,11 +222,11 @@ async def google_callback(code: str = None, error: str = None):
     refresh = create_refresh_token(user["id"])
     await save_refresh_token(user["id"], refresh)
 
-    # Redirect to frontend with tokens in URL (frontend stores them)
+    _set_refresh_cookie(response, refresh)
+
     redirect_url = (
         f"{FRONTEND_URL}/auth/callback"
         f"?access_token={access}"
-        f"&refresh_token={refresh}"
         f"&needs_profile={'true' if needs_profile else 'false'}"
     )
     return RedirectResponse(redirect_url)

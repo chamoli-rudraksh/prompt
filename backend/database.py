@@ -90,6 +90,14 @@ async def init_db():
                 duration_ms INTEGER,
                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS reading_history (
+                user_id     TEXT NOT NULL,
+                article_id  TEXT NOT NULL,
+                read_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                time_spent  INTEGER DEFAULT 0,
+                PRIMARY KEY (user_id, article_id)
+            );
         """)
         await db.commit()
     finally:

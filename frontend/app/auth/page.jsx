@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { saveTokens, isLoggedIn, apiFetch } from "@/lib/auth";
 
@@ -16,7 +16,7 @@ const TOPICS = [
   "Geopolitics",
 ];
 
-export default function AuthPage() {
+function AuthPageInner() {
   const router = useRouter();
   const params = useSearchParams();
   const [mode, setMode] = useState("login");
@@ -110,7 +110,7 @@ export default function AuthPage() {
         if (mode === "register") setStep(1);
         return;
       }
-      saveTokens(data.access_token, data.refresh_token, data.user);
+      saveTokens(data.access_token, data.user);
       router.push("/feed");
     } catch {
       setError("Could not connect to server. Is the backend running?");
@@ -510,5 +510,17 @@ function Field({ label, type = "text", value, onChange, placeholder }) {
         }}
       />
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Loading...</div>
+      </div>
+    }>
+      <AuthPageInner />
+    </Suspense>
   );
 }
