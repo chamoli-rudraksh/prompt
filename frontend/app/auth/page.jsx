@@ -99,7 +99,7 @@ function AuthPageInner() {
       mode === "login" ? { email: form.email, password: form.password } : form;
 
     try {
-      const res = await apiFetch(`${API}${endpoint}`, {
+      const res = await fetch(`${API}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

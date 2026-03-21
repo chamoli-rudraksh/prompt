@@ -1,9 +1,13 @@
 const API = process.env.NEXT_PUBLIC_API_URL
 
-let _accessToken = null
+// Rehydrate the access token from localStorage on page load
+let _accessToken = (typeof window !== "undefined")
+  ? localStorage.getItem("access_token")
+  : null
 
 export function saveTokens(accessToken, user) {
   _accessToken = accessToken
+  localStorage.setItem("access_token", accessToken)
   localStorage.setItem("user", JSON.stringify(user))
 }
 
@@ -14,7 +18,7 @@ export function getUser() {
 }
 
 export function isLoggedIn() {
-  return !!getUser()
+  return !!getUser() && !!_accessToken
 }
 
 export function needsProfile() {
@@ -29,11 +33,12 @@ async function refreshAccessToken() {
       credentials: "include",
     })
     if (!res.ok) {
-      logout()
+      // Don't auto-logout here — the caller or apiFetch will handle 401s
       return null
     }
     const data = await res.json()
     _accessToken = data.access_token
+    localStorage.setItem("access_token", data.access_token)
     return _accessToken
   } catch {
     return null
@@ -60,13 +65,14 @@ export async function logout() {
     })
   } catch {}
   _accessToken = null
+  localStorage.removeItem("access_token")
   localStorage.removeItem("user")
   window.location.href = "/auth"
 }
 
 export async function apiFetch(url, options = {}) {
   const token = await getAccessToken()
-  return fetch(url, {
+  const res = await fetch(url, {
     ...options,
     credentials: "include",
     headers: {
@@ -75,4 +81,12 @@ export async function apiFetch(url, options = {}) {
       ...(options.headers || {}),
     },
   })
+
+  // If the server says 401, the token is truly invalid — log out
+  if (res.status === 401) {
+    logout()
+    return res
+  }
+
+  return res
 }

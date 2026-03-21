@@ -1,54 +1,79 @@
-import yfinance as yf
-import asyncio
+
+import httpx
 import time
 from fastapi import APIRouter, Depends
 from auth import get_current_user
-from llm import ask_llm
-from ingestion import search_articles
 
 router = APIRouter()
 
-INDICES = [
-    {"symbol": "^BSESN",  "name": "Sensex",   "short": "BSE Sensex"},
-    {"symbol": "^NSEI",   "name": "Nifty 50",  "short": "Nifty 50"},
-    {"symbol": "USDINR=X","name": "USD/INR",   "short": "USD/INR"},
-    {"symbol": "GC=F",    "name": "Gold",      "short": "Gold"},
-]
-
 # Cache market data for 5 minutes
 _market_cache = {"data": None, "ts": 0}
-CACHE_TTL = 300  # 5 minutes
+CACHE_TTL = 300
 
 
-def fetch_ticker(symbol: str) -> dict:
-    try:
-        t    = yf.Ticker(symbol)
-        info = t.fast_info
-        return {
-            "current": round(float(info.last_price), 2),
-            "open":    round(float(info.open), 2),
-            "change":  round(float(info.last_price - info.open), 2),
-            "change_pct": round(
-                float((info.last_price - info.open) / info.open * 100), 2
-            ),
-        }
-    except Exception:
-        return {"current": 0, "open": 0, "change": 0, "change_pct": 0}
-
-
-async def get_market_commentary(index_name: str, change_pct: float) -> str:
-    direction = "rose" if change_pct > 0 else "fell"
-    articles  = await search_articles(f"{index_name} market today", n=3)
-    context   = "\n".join([a.get("summary", "") for a in articles])
-    prompt = (
-        f"{index_name} {direction} {abs(change_pct):.2f}% today. "
-        f"Using only this context, explain why in one sentence (max 20 words): "
-        f"{context}"
+async def _fetch_crypto():
+    """Bitcoin + Ethereum + Gold (PAX Gold) from CoinGecko — free, no key."""
+    url = (
+        "https://api.coingecko.com/api/v3/simple/price"
+        "?ids=bitcoin,ethereum,paxos-gold"
+        "&vs_currencies=usd"
+        "&include_24hr_change=true"
     )
     try:
-        return await ask_llm(prompt)
-    except Exception:
-        return f"{index_name} moved {change_pct:+.2f}% today."
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+            data = r.json()
+        results = []
+        mapping = [
+            ("bitcoin",     "Bitcoin",   "BTC"),
+            ("ethereum",    "Ethereum",  "ETH"),
+            ("paxos-gold",  "Gold",      "Gold (PAXG)"),
+        ]
+        for cg_id, name, short in mapping:
+            info = data.get(cg_id, {})
+            price  = info.get("usd", 0)
+            change = info.get("usd_24h_change", 0)
+            results.append({
+                "symbol":      cg_id,
+                "name":        name,
+                "short":       short,
+                "current":     round(price, 2),
+                "change":      round(price * change / 100, 2),
+                "change_pct":  round(change, 2),
+                "commentary":  f"{name} {'rose' if change >= 0 else 'fell'} {abs(change):.2f}% in the last 24h.",
+                "is_positive": change >= 0,
+            })
+        return results
+    except Exception as e:
+        print(f"[MARKET] CoinGecko error: {e}")
+        return []
+
+
+async def _fetch_usd_inr():
+    """USD/INR from open exchangerate API — free, no key."""
+    url = "https://open.er-api.com/v6/latest/USD"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+            data = r.json()
+        inr = data.get("rates", {}).get("INR", 0)
+        if not inr:
+            return None
+        return {
+            "symbol":      "USDINR",
+            "name":        "USD/INR",
+            "short":       "USD/INR",
+            "current":     round(inr, 2),
+            "change":      0,
+            "change_pct":  0,
+            "commentary":  f"1 USD = ₹{inr:.2f}",
+            "is_positive": True,
+        }
+    except Exception as e:
+        print(f"[MARKET] Exchange rate error: {e}")
+        return None
 
 
 @router.get("")
@@ -58,23 +83,25 @@ async def get_market_data(current_user: dict = Depends(get_current_user)):
         return _market_cache["data"]
 
     results = []
-    for idx in INDICES:
-        data = fetch_ticker(idx["symbol"])
-        commentary = await get_market_commentary(
-            idx["name"], data["change_pct"]
-        )
-        results.append({
-            "symbol":      idx["symbol"],
-            "name":        idx["name"],
-            "short":       idx["short"],
-            "current":     data["current"],
-            "change":      data["change"],
-            "change_pct":  data["change_pct"],
-            "commentary":  commentary,
-            "is_positive": data["change_pct"] >= 0,
-        })
+
+    # Fetch in parallel
+    crypto = await _fetch_crypto()
+    usd_inr = await _fetch_usd_inr()
+
+    if usd_inr:
+        results.append(usd_inr)
+    results.extend(crypto)
+
+    if not results:
+        results = [
+            {"symbol": "N/A", "name": "Market Data", "short": "N/A",
+             "current": 0, "change": 0, "change_pct": 0,
+             "commentary": "Unable to fetch market data. Try again later.",
+             "is_positive": True},
+        ]
 
     response = {"indices": results, "updated_at": int(now)}
-    _market_cache["data"] = response
-    _market_cache["ts"]   = now
+    if any(r["current"] > 0 for r in results):
+        _market_cache["data"] = response
+        _market_cache["ts"] = now
     return response
