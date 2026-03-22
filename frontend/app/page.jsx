@@ -146,7 +146,7 @@ function MagneticCTA({ onClick }) {
   const sx = useSpring(x, { stiffness: 200, damping: 18 });
   const sy = useSpring(y, { stiffness: 200, damping: 18 });
 
-  // ✅ handlers were missing — without them the magnetic effect never ran
+
   const onMove = useCallback((e) => {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
