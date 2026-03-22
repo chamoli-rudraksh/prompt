@@ -1,0 +1,442 @@
+/* ─── Fonts ──────────────────────────────────────────────────────────────────
+   JetBrains Mono / Fira Code  →  --font-mono
+   Playfair Display            →  --font-serif
+   DM Sans                     →  --font-sans
+   ──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --bg:          #07070a;
+  --surface:     #0f0f12;
+  --border:      rgba(255, 255, 255, 0.06);
+  --text:        #f0f0f2;
+  --text-sec:    #8a8a9a;
+  --text-muted:  #44445a;
+  --accent:      #f5c842;
+  --accent-dim:  rgba(245, 200, 66, 0.10);
+  --accent-glow: rgba(245, 200, 66, 0.35);
+  --indigo:      rgba(99, 102, 241, 0.5);
+
+  --font-mono:  'JetBrains Mono', 'Fira Code', monospace;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans:  'DM Sans', system-ui, sans-serif;
+}
+
+
+/* ─── Grid Background ────────────────────────────────────────────────────────*/
+
+.grid-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.grid-h {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(var(--border) 1px, transparent 1px);
+  background-size: 100% 72px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 80%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, black 15%, black 80%, transparent);
+}
+
+.grid-v {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 80px 100%;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 80%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, black 15%, black 80%, transparent);
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+}
+
+.orb-1 {
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(245, 200, 66, 0.22) 0%, transparent 70%);
+  top: -320px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.orb-2 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, var(--indigo) 0%, transparent 70%);
+  bottom: 20%;
+  right: -150px;
+  opacity: 0.6;
+}
+
+.orb-3 {
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(245, 200, 66, 0.15) 0%, transparent 70%);
+  top: 60%;
+  left: 8%;
+}
+
+/* ─── Ticker ─────────────────────────────────────────────────────────────────*/
+
+.ticker-outer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7, 7, 10, 0.85);
+  backdrop-filter: blur(12px);
+}
+
+.ticker-wrap {
+  height: 36px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ticker-fade-l {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  background: linear-gradient(90deg, rgba(7, 7, 10, 1), transparent);
+  z-index: 2;
+}
+
+.ticker-fade-r {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  background: linear-gradient(-90deg, rgba(7, 7, 10, 1), transparent);
+  z-index: 2;
+}
+
+.ticker-track {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding: 0 2rem;
+}
+
+.ticker-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  box-shadow: 0 0 4px var(--accent-glow);
+}
+
+/* ─── Page ───────────────────────────────────────────────────────────────────*/
+
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  position: relative;
+  z-index: 1;
+  overflow-x: hidden;
+}
+
+/* ─── Hero ───────────────────────────────────────────────────────────────────*/
+
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8rem 2rem 4rem;
+  max-width: 900px;
+  margin: 0 auto;
+  will-change: transform, opacity;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 5vw, 4.2rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  max-width: 840px;
+  margin: 0 0 1.8rem;
+}
+
+.title-word {
+  display: inline-block;
+}
+
+.title-accent {
+  display: block;
+  color: var(--accent);
+  font-style: italic;
+}
+
+.subtitle {
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: var(--text-sec);
+  max-width: 500px;
+  margin: 0 auto 2.5rem;
+}
+
+/* ─── CTA Button ─────────────────────────────────────────────────────────────*/
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--bg);
+  background: var(--accent);
+  border: none;
+  border-radius: 99px;
+  padding: 0.95rem 2.2rem;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 40px var(--accent-glow), 0 2px 20px rgba(0, 0, 0, 0.5);
+  margin-bottom: 2.5rem;
+}
+
+.cta-text {
+  position: relative;
+  z-index: 1;
+  font-weight: 700;
+}
+
+.cta-arrow {
+  position: relative;
+  z-index: 1;
+  font-size: 1rem;
+}
+
+.cta-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), transparent);
+  border-radius: 99px;
+}
+
+/* ─── Stats Row ──────────────────────────────────────────────────────────────*/
+
+.stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 3.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 2.2rem;
+  margin-top: 2rem;
+}
+
+.stat-item {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 100px;
+}
+
+.stat-val {
+  font-family: var(--font-serif);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.08);
+}
+
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* ─── Features ───────────────────────────────────────────────────────────────*/
+
+.features {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 4rem 2rem;
+}
+
+.features-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 2.5rem;
+  text-align: center;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ─── Feature Card ───────────────────────────────────────────────────────────*/
+
+.card {
+  padding: 2rem;
+  background: rgba(15, 15, 18, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  transition: all 0.25s ease;
+}
+
+.card--hovered {
+  background: #141418;
+  border-color: rgba(245, 200, 66, 0.25);
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+.card-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  transform-origin: left;
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-no {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.card-tag {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+}
+
+.card-icon {
+  font-size: 1.6rem;
+  margin-top: 0.25rem;
+}
+
+.card-title {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.card-desc {
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  line-height: 1.72;
+  color: var(--text-sec);
+  margin: 0;
+  flex-grow: 1;
+}
+
+.card-stat-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.card-stat-num {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.card-stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+/* ─── Onboarding Section ─────────────────────────────────────────────────────*/
+
+.onboarding {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 2rem 2rem 8rem;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 2.5rem;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.divider-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
