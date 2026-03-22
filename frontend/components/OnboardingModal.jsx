@@ -40,47 +40,47 @@ export default function OnboardingModal({ onComplete }) {
   return (
     <div className="onboarding-container">
       <h2 className="onboarding-title">What kind of reader are you?</h2>
+
       <p className="onboarding-subtitle">
         Personalise your ET NewsAI experience in 30 seconds
       </p>
 
-      {/* Name input */}
+      {/* Name */}
       <input
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Enter your name"
         className="onboarding-input"
-        id="onboarding-name"
       />
 
-      {/* Persona selection */}
+      {/* Persona */}
       <div className="persona-grid">
         {personas.map((p) => (
           <button
             key={p.id}
             onClick={() => setPersona(p.id)}
-            className={`persona-card ${
-              persona === p.id ? 'selected' : ''
-            }`}
-            id={`persona-${p.id}`}
+            className={`persona-card ${persona === p.id ? 'selected' : ''}`}
           >
-            <span className="persona-icon">{p.icon}</span>
-            <span className="persona-label">{p.label}</span>
-            <span className="persona-desc">{p.desc}</span>
+            <div className="persona-header">
+              <span className="persona-icon">{p.icon}</span>
+              <span className="persona-label">{p.label}</span>
+            </div>
+
+            <div className="persona-desc">
+              {p.desc}
+            </div>
           </button>
         ))}
       </div>
 
-      {/* Topic selection */}
+      {/* Interests */}
       {persona && (
         <>
-          <p
-            className="onboarding-subtitle"
-            style={{ marginTop: '1rem' }}
-          >
+          <p className="onboarding-subtitle interest-title">
             Select topics that interest you
           </p>
+
           <div className="interests-grid">
             {topicOptions.map((t) => (
               <button
@@ -89,7 +89,6 @@ export default function OnboardingModal({ onComplete }) {
                 className={`interest-chip ${
                   interests.includes(t.id) ? 'selected' : ''
                 }`}
-                id={`interest-${t.id}`}
               >
                 {t.label}
               </button>
@@ -98,11 +97,11 @@ export default function OnboardingModal({ onComplete }) {
         </>
       )}
 
+      {/* CTA */}
       <button
         onClick={handleSubmit}
         disabled={!name.trim() || !persona || interests.length === 0}
         className="onboarding-submit-btn"
-        id="onboarding-submit"
       >
         Start reading →
       </button>

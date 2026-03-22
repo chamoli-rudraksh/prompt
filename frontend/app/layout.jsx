@@ -21,19 +21,14 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
-<<<<<<< HEAD
         <ThemeProvider>
-          <Navbar />
-          <main className="main-content">{children}</main>
-          <KeyboardShortcuts />
+          <SmoothScrollProvider>
+            <ScrollProgress />
+            <Navbar />
+            <main>{children}</main>
+            <KeyboardShortcuts />
+          </SmoothScrollProvider>
         </ThemeProvider>
-=======
-        <SmoothScrollProvider>
-          <ScrollProgress />
-          <Navbar />
-          <main className="main-content">{children}</main>
-        </SmoothScrollProvider>
->>>>>>> 39d1d8a (homepage redesigned)
       </body>
     </html>
   );

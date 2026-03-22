@@ -1,8 +1,8 @@
-/* ─── Fonts ──────────────────────────────────────────────────────────────────
+/* ─── Fonts ───────────────────────────────────────────────────────────────────
    JetBrains Mono / Fira Code  →  --font-mono
    Playfair Display            →  --font-serif
    DM Sans                     →  --font-sans
-   ──────────────────────────────────────────────────────────────────────────── */
+   ─────────────────────────────────────────────────────────────────────────── */
 
 :root {
   --bg:          #07070a;
@@ -21,8 +21,89 @@
   --font-sans:  'DM Sans', system-ui, sans-serif;
 }
 
+/* ─── Loader ──────────────────────────────────────────────────────────────────
+   ✅ These were entirely missing from the previous file
+   ─────────────────────────────────────────────────────────────────────────── */
 
-/* ─── Grid Background ────────────────────────────────────────────────────────*/
+.loader {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.loader-center {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 3rem;
+}
+
+.loader-ring {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: rgba(245, 200, 66, 0.27);
+}
+
+.loader-logo {
+  font-family: var(--font-serif);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.04em;
+}
+
+.loader-logo span {
+  color: var(--accent);
+}
+
+.loader-bottom {
+  width: 240px;
+}
+
+.loader-bar-wrap {
+  height: 2px;
+  background: #1a1a20;
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.loader-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #ffaa00);
+  border-radius: 99px;
+  transition: width 0.15s ease;
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.loader-meta {
+  display: flex;
+  justify-content: space-between;
+}
+
+.loader-meta-text {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.loader-meta-text--accent {
+  color: var(--accent);
+}
+
+/* ─── Grid Background ─────────────────────────────────────────────────────── */
 
 .grid-bg {
   position: fixed;
@@ -83,7 +164,7 @@
   left: 8%;
 }
 
-/* ─── Ticker ─────────────────────────────────────────────────────────────────*/
+/* ─── Ticker ──────────────────────────────────────────────────────────────── */
 
 .ticker-outer {
   position: fixed;
@@ -151,7 +232,7 @@
   box-shadow: 0 0 4px var(--accent-glow);
 }
 
-/* ─── Page ───────────────────────────────────────────────────────────────────*/
+/* ─── Page ────────────────────────────────────────────────────────────────── */
 
 .page {
   min-height: 100vh;
@@ -163,7 +244,7 @@
   overflow-x: hidden;
 }
 
-/* ─── Hero ───────────────────────────────────────────────────────────────────*/
+/* ─── Hero ────────────────────────────────────────────────────────────────── */
 
 .hero {
   min-height: 100vh;
@@ -208,7 +289,7 @@
   margin: 0 auto 2.5rem;
 }
 
-/* ─── CTA Button ─────────────────────────────────────────────────────────────*/
+/* ─── CTA Button ──────────────────────────────────────────────────────────── */
 
 .cta {
   display: inline-flex;
@@ -249,7 +330,7 @@
   border-radius: 99px;
 }
 
-/* ─── Stats Row ──────────────────────────────────────────────────────────────*/
+/* ─── Stats Row ───────────────────────────────────────────────────────────── */
 
 .stats-row {
   display: flex;
@@ -285,7 +366,7 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
-/* ─── Features ───────────────────────────────────────────────────────────────*/
+/* ─── Features ────────────────────────────────────────────────────────────── */
 
 .features {
   max-width: 1100px;
@@ -311,7 +392,7 @@
   overflow: hidden;
 }
 
-/* ─── Feature Card ───────────────────────────────────────────────────────────*/
+/* ─── Feature Card ────────────────────────────────────────────────────────── */
 
 .card {
   padding: 2rem;
@@ -322,14 +403,18 @@
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
-  transition: all 0.25s ease;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  /* ✅ was missing — .card-line uses position:absolute and needs this as its anchor */
+  position: relative;
 }
 
 .card--hovered {
   background: #141418;
   border-color: rgba(245, 200, 66, 0.25);
-  transform: translateY(-6px);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  /* ✅ transform removed — Framer Motion owns the transform on this element;
+        mixing a CSS transform here causes a conflict and a visible jump.
+        The translateY(-6px) lift is handled by whileInView/onHoverStart in the JSX. */
 }
 
 .card-line {
@@ -411,12 +496,31 @@
   color: var(--text-muted);
 }
 
-/* ─── Onboarding Section ─────────────────────────────────────────────────────*/
+/* ─── Onboarding Section ──────────────────────────────────────────────────── */
 
 .onboarding {
   max-width: 680px;
-  margin: 0 auto;
-  padding: 2rem 2rem 8rem;
+  margin: 6rem auto 0; /* 🔥 spacing from features */
+  padding: 3rem 2.5rem 6rem;
+
+  /* 🔥 visual separation */
+  background: rgba(15, 15, 18, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+
+  backdrop-filter: blur(14px);
+
+  position: relative;
+  z-index: 1;
+}
+.onboarding::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 16px;
+  background: linear-gradient(120deg, transparent, var(--accent-dim), transparent);
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .divider {
@@ -439,4 +543,119 @@
   letter-spacing: 0.15em;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+/* Container */
+.onboarding-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+/* Title */
+.onboarding-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: white;
+}
+
+/* Subtitle */
+.onboarding-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* Input */
+.onboarding-input {
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: white;
+}
+
+/* Persona grid */
+.persona-grid {
+  display: grid;
+  gap: 0.6rem;
+}
+
+/* Persona card */
+.persona-card {
+  text-align: left;
+  padding: 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.persona-card:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+.persona-card.selected {
+  border-color: var(--accent);
+  background: rgba(245,200,66,0.08);
+}
+
+/* Header (ICON + LABEL) */
+.persona-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.persona-icon {
+  font-size: 1rem;
+}
+
+.persona-label {
+  font-weight: 600;
+  color: white;
+}
+
+/* Description */
+.persona-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+/* Interests */
+.interests-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.interest-chip {
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+}
+
+.interest-chip.selected {
+  background: var(--accent);
+  color: black;
+}
+
+/* CTA */
+.onboarding-submit-btn {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: black;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.onboarding-submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

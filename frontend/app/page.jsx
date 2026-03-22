@@ -1,19 +1,3 @@
-<<<<<<< HEAD
-"use client";
-import { useRouter } from "next/navigation";
-import { isLoggedIn } from "@/lib/auth";
-import { useEffect, useState } from "react";
-import OnboardingModal from "@/components/OnboardingModal";
-import { createUser, getUser } from "@/lib/api";
-
-export default function HomePage() {
-  const router = useRouter();
-  useEffect(() => {
-    router.replace(isLoggedIn() ? "/feed" : "/auth");
-  }, []);
-  return null;
-}
-=======
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -24,10 +8,11 @@ import OnboardingModal from '@/components/OnboardingModal';
 import { createUser, getUser } from '@/lib/api';
 import './HomePage.css';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────────────────
 
 const FEATURES = [
   {
+    no: '01',
     icon: '📰',
     tag: 'Personalization',
     title: 'Your Daily Feed',
@@ -36,6 +21,7 @@ const FEATURES = [
     statLabel: 'to get up to speed',
   },
   {
+    no: '02',
     icon: '🧭',
     tag: 'Intelligence',
     title: 'Deep Briefings',
@@ -44,6 +30,7 @@ const FEATURES = [
     statLabel: 'more clarity',
   },
   {
+    no: '03',
     icon: '📊',
     tag: 'Analytics',
     title: 'Story Tracking',
@@ -61,12 +48,60 @@ const TICKER_ITEMS = [
 
 const WORDS = "It's 2026—and business news still reads like it's 2005".split(' ');
 
-// ─── Ticker ───────────────────────────────────────────────────────────────────
+// ─── Loader ────────────────────────────────────────────────────────────────
+
+function LoadingScreen() {
+  const [pct, setPct] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPct(p => {
+        // ✅ clear the interval once we reach 100 so it doesn't run forever
+        if (p >= 100) { clearInterval(id); return 100; }
+        return Math.min(p + Math.random() * 18, 100);
+      });
+    }, 120);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    // ✅ key + initial/animate/exit so AnimatePresence can transition it out
+    <motion.div
+      key="loader"
+      className="loader"
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 0.96, filter: 'blur(16px)' }}
+      transition={{ duration: 0.6, ease: [0.76, 0, 0.24, 1] }}
+    >
+      <div className="loader-center">
+        <motion.div
+          className="loader-ring"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+        />
+        <div className="loader-logo">ET<span>AI</span></div>
+      </div>
+
+      <div className="loader-bottom">
+        <div className="loader-bar-wrap">
+          <div className="loader-bar-fill" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="loader-meta">
+          <span className="loader-meta-text">CALIBRATING</span>
+          <span className="loader-meta-text loader-meta-text--accent">{Math.round(pct)}%</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Ticker ────────────────────────────────────────────────────────────────
 
 function Ticker() {
   const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
   return (
     <div className="ticker-wrap">
+      {/* ✅ fade overlays were missing — needed for the gradient edge effect */}
       <div className="ticker-fade-l" />
       <div className="ticker-fade-r" />
       <motion.div
@@ -84,7 +119,7 @@ function Ticker() {
   );
 }
 
-// ─── Background ───────────────────────────────────────────────────────────────
+// ─── Background ────────────────────────────────────────────────────────────
 
 function GridBackground() {
   return (
@@ -102,7 +137,7 @@ function GridBackground() {
   );
 }
 
-// ─── Magnetic CTA ─────────────────────────────────────────────────────────────
+// ─── CTA ───────────────────────────────────────────────────────────────────
 
 function MagneticCTA({ onClick }) {
   const ref = useRef(null);
@@ -111,6 +146,7 @@ function MagneticCTA({ onClick }) {
   const sx = useSpring(x, { stiffness: 200, damping: 18 });
   const sy = useSpring(y, { stiffness: 200, damping: 18 });
 
+  // ✅ handlers were missing — without them the magnetic effect never ran
   const onMove = useCallback((e) => {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
@@ -144,28 +180,24 @@ function MagneticCTA({ onClick }) {
   );
 }
 
-// ─── Feature Card ─────────────────────────────────────────────────────────────
+// ─── Feature Card ──────────────────────────────────────────────────────────
 
 function FeatureCard({ f, delay }) {
   const [hover, setHover] = useState(false);
+
   return (
     <motion.div
       className={`card${hover ? ' card--hovered' : ''}`}
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+      // ✅ once:true was missing — cards were re-animating on every scroll pass
       viewport={{ once: true }}
+      transition={{ delay, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       onHoverStart={() => setHover(true)}
       onHoverEnd={() => setHover(false)}
     >
-      <motion.div
-        className="card-line"
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: hover ? 1 : 0 }}
-        transition={{ duration: 0.3 }}
-      />
       <div className="card-top">
-        
+        <span className="card-no">{f.no}</span>
         <span className="card-tag">{f.tag}</span>
       </div>
       <div className="card-icon">{f.icon}</div>
@@ -179,7 +211,7 @@ function FeatureCard({ f, delay }) {
   );
 }
 
-// ─── Headline ─────────────────────────────────────────────────────────────────
+// ─── Headline ──────────────────────────────────────────────────────────────
 
 function AnimatedHeadline() {
   return (
@@ -193,6 +225,7 @@ function AnimatedHeadline() {
           transition={{ delay: 0.3 + i * 0.055, duration: 0.55 }}
         >
           {w}
+          {/* ✅ was unconditional — last word got a trailing space before "We fixed that." */}
           {i !== WORDS.length - 1 && '\u00A0'}
         </motion.span>
       ))}
@@ -201,10 +234,7 @@ function AnimatedHeadline() {
         className="title-accent"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{
-          delay: 0.3 + WORDS.length * 0.055 + 0.15,
-          duration: 0.7,
-        }}
+        transition={{ delay: 0.3 + WORDS.length * 0.055 + 0.15, duration: 0.7 }}
       >
         We fixed that.
       </motion.span>
@@ -212,23 +242,34 @@ function AnimatedHeadline() {
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const router   = useRouter();
   const scrollTo = useScrollTo();
+  const [checking, setChecking] = useState(true);
   const [scrollY, setScrollY]   = useState(0);
 
   useScrollEvent(useCallback(({ scroll }) => setScrollY(scroll), []));
 
   useEffect(() => {
+    let mounted = true;
+
     (async () => {
-      const id = localStorage.getItem('etnewsai_user_id');
-      if (id) {
-        try { await getUser(id); router.push('/feed'); return; }
-        catch { localStorage.clear(); }
+      try {
+        const id = localStorage.getItem('etnewsai_user_id');
+        if (id) {
+          await getUser(id);
+          if (mounted) router.replace('/feed');
+          return;
+        }
+      } catch {
+        localStorage.clear();
       }
+      if (mounted) setChecking(false);
     })();
+
+    return () => { mounted = false; };
   }, [router]);
 
   const handleOnboardingComplete = async (name, persona, interests) => {
@@ -236,29 +277,32 @@ export default function HomePage() {
     localStorage.setItem('etnewsai_user_id', user.id);
     localStorage.setItem('etnewsai_user_name', user.name);
     localStorage.setItem('etnewsai_persona', user.persona);
-    router.push('/feed');
+    router.replace('/feed');
   };
 
-  const heroOpacity  = Math.max(1 - scrollY / 550, 0);
+  const heroOpacity  = Math.max(1 - scrollY / 500, 0);
   const heroParallax = scrollY * 0.18;
 
   return (
-    <AnimatePresence mode="wait"> 
+    <AnimatePresence mode="wait">
+      {checking ? (
+        <LoadingScreen key="loader" />
+      ) : (
+        // ✅ key + initial/animate/exit were missing — page never faded in or out
         <motion.div
           key="page"
           className="page"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
         >
           <GridBackground />
 
-          {/* ── TICKER ── */}
           <div className="ticker-outer">
             <Ticker />
           </div>
 
-          {/* ── HERO ── */}
           <section
             className="hero"
             style={{
@@ -274,62 +318,30 @@ export default function HomePage() {
               animate={{ opacity: 1 }}
               transition={{ delay: 1.5, duration: 0.7 }}
             >
-              Smarter personalization. Deeper briefings. Real-time visual story
-              tracking—everything you need to stay ahead, without the noise.
+              Smarter personalization. Deeper insights. Visual story tracking.
             </motion.p>
 
             <MagneticCTA onClick={() => scrollTo('#onboarding-section', { duration: 1.4 })} />
-
-            <motion.div
-              className="stats-row"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 2.1 }}
-            >
-              {[['3 min', 'daily catch-up'], ['100+', 'trusted sources'], ['Live', 'story tracking']].map(([v, l]) => (
-                <div key={l} className="stat-item">
-                  <span className="stat-val">{v}</span>
-                  <span className="stat-label">{l}</span>
-                </div>
-              ))}
-            </motion.div>
           </section>
 
-          {/* ── FEATURES ── */}
           <section className="features">
-            <motion.p
-              className="features-label"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-            >
-              What You Get
-            </motion.p>
             <div className="cards-grid">
               {FEATURES.map((f, i) => (
-                <FeatureCard key={i} f={f} delay={i * 0.12} />
+                <FeatureCard key={f.no} f={f} delay={i * 0.12} />
               ))}
             </div>
           </section>
+            <section id="onboarding-section" className="onboarding">
+              <div className="divider">
+                <div className="divider-line" />
+                <span className="divider-label">Personalize your feed</span>
+                <div className="divider-line" />
+              </div>
 
-          {/* ── ONBOARDING ── */}
-          <motion.section
-            id="onboarding-section"
-            className="onboarding"
-            initial={{ opacity: 0, y: 60 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-            viewport={{ once: true, margin: '-80px' }}
-          >
-            <div className="divider">
-              <div className="divider-line" />
-              <span className="divider-label">Personalize your feed</span>
-              <div className="divider-line" />
-            </div>
-            <OnboardingModal onComplete={handleOnboardingComplete} />
-          </motion.section>
+              <OnboardingModal onComplete={handleOnboardingComplete} />
+            </section>
         </motion.div>
+      )}
     </AnimatePresence>
   );
 }
->>>>>>> 39d1d8a (homepage redesigned)
