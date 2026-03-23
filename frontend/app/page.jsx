@@ -4,9 +4,9 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
 import { useScrollEvent, useScrollTo } from '@/components/SmoothScrollProvider';
-import OnboardingModal from '@/components/OnboardingModal';
+import OnboardingModal from '@/components/Onboarding/OnboardingModal';
 import { createUser, getUser } from '@/lib/api';
-import './HomePage.css';
+import styles from './page.module.css';
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
@@ -48,70 +48,23 @@ const TICKER_ITEMS = [
 
 const WORDS = "It's 2026—and business news still reads like it's 2005".split(' ');
 
-// ─── Loader ────────────────────────────────────────────────────────────────
-
-function LoadingScreen() {
-  const [pct, setPct] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setPct(p => {
-        // ✅ clear the interval once we reach 100 so it doesn't run forever
-        if (p >= 100) { clearInterval(id); return 100; }
-        return Math.min(p + Math.random() * 18, 100);
-      });
-    }, 120);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    // ✅ key + initial/animate/exit so AnimatePresence can transition it out
-    <motion.div
-      key="loader"
-      className="loader"
-      initial={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 0.96, filter: 'blur(16px)' }}
-      transition={{ duration: 0.6, ease: [0.76, 0, 0.24, 1] }}
-    >
-      <div className="loader-center">
-        <motion.div
-          className="loader-ring"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-        />
-        <div className="loader-logo">ET<span>AI</span></div>
-      </div>
-
-      <div className="loader-bottom">
-        <div className="loader-bar-wrap">
-          <div className="loader-bar-fill" style={{ width: `${pct}%` }} />
-        </div>
-        <div className="loader-meta">
-          <span className="loader-meta-text">CALIBRATING</span>
-          <span className="loader-meta-text loader-meta-text--accent">{Math.round(pct)}%</span>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
 
 // ─── Ticker ────────────────────────────────────────────────────────────────
 
 function Ticker() {
   const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
   return (
-    <div className="ticker-wrap">
-      {/* ✅ fade overlays were missing — needed for the gradient edge effect */}
-      <div className="ticker-fade-l" />
-      <div className="ticker-fade-r" />
+    <div className={styles["ticker-wrap"]}>
+      <div className={styles["ticker-fade-l"]} />
+      <div className={styles["ticker-fade-r"]} />
       <motion.div
-        className="ticker-track"
+        className={styles["ticker-track"]}
         animate={{ x: ['0%', '-50%'] }}
         transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
       >
         {items.map((t, i) => (
-          <span key={i} className="ticker-item">
-            <span className="ticker-dot" />{t}
+          <span key={i} className={styles["ticker-item"]}>
+            <span className={styles["ticker-dot"]} />{t}
           </span>
         ))}
       </motion.div>
@@ -123,16 +76,16 @@ function Ticker() {
 
 function GridBackground() {
   return (
-    <div className="grid-bg" aria-hidden>
-      <div className="grid-h" />
-      <div className="grid-v" />
+    <div className={styles["grid-bg"]} aria-hidden>
+      <div className={styles["grid-h"]} />
+      <div className={styles["grid-v"]} />
       <motion.div
-        className="orb orb-1"
+        className={styles["orb orb-1"]}
         animate={{ scale: [1, 1.08, 1], opacity: [0.18, 0.26, 0.18] }}
         transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
       />
-      <div className="orb orb-2" />
-      <div className="orb orb-3" />
+      <div className={styles["orb orb-2" ]}/>
+      <div className={styles["orb orb-3"]} />
     </div>
   );
 }
@@ -159,8 +112,8 @@ function MagneticCTA({ onClick }) {
   return (
     <motion.button
       ref={ref}
-      className="cta"
-      style={{ x: sx, y: sy }}
+      className={styles["cta"]}
+      styles={{ x: sx, y: sy }}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
       onClick={onClick}
@@ -169,13 +122,13 @@ function MagneticCTA({ onClick }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 1.8, duration: 0.6 }}
     >
-      <span className="cta-text">Start Personalizing</span>
+      <span className={styles["cta-text"]}>Start Personalizing</span>
       <motion.span
-        className="cta-arrow"
+        className={styles["cta-arrow"]}
         animate={{ x: [0, 5, 0] }}
         transition={{ duration: 1.5, repeat: Infinity }}
       >→</motion.span>
-      <div className="cta-sheen" />
+      <div className={styles["cta-sheen"]} />
     </motion.button>
   );
 }
@@ -187,25 +140,24 @@ function FeatureCard({ f, delay }) {
 
   return (
     <motion.div
-      className={`card${hover ? ' card--hovered' : ''}`}
+      className={`${styles.card} ${hover ? styles["card--hovered"] : ''}`}
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
-      // ✅ once:true was missing — cards were re-animating on every scroll pass
       viewport={{ once: true }}
       transition={{ delay, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       onHoverStart={() => setHover(true)}
       onHoverEnd={() => setHover(false)}
     >
-      <div className="card-top">
-        <span className="card-no">{f.no}</span>
-        <span className="card-tag">{f.tag}</span>
+      <div className={styles["card-top"]}>
+        <span className={styles["card-no"]}>{f.no}</span>
+        <span className={styles["card-tag"]}>{f.tag}</span>
       </div>
-      <div className="card-icon">{f.icon}</div>
-      <h3 className="card-title">{f.title}</h3>
-      <p className="card-desc">{f.desc}</p>
-      <div className="card-stat-row">
-        <span className="card-stat-num">{f.stat}</span>
-        <span className="card-stat-label">{f.statLabel}</span>
+      <div className={styles["card-icon"]}>{f.icon}</div>
+      <h3 className={styles["card-title"]}>{f.title}</h3>
+      <p className={styles["card-desc"]}>{f.desc}</p>
+      <div className={styles["card-stat-row"]}>
+        <span className={styles["card-stat-num"]}>{f.stat}</span>
+        <span className={styles["card-stat-label"]}>{f.statLabel}</span>
       </div>
     </motion.div>
   );
@@ -215,23 +167,22 @@ function FeatureCard({ f, delay }) {
 
 function AnimatedHeadline() {
   return (
-    <h1 className="title">
+    <h1 className={styles["title"]}>
       {WORDS.map((w, i) => (
         <motion.span
           key={i}
-          className="title-word"
+          className={styles["title-word"]}
           initial={{ opacity: 0, y: 28, filter: 'blur(8px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           transition={{ delay: 0.3 + i * 0.055, duration: 0.55 }}
         >
           {w}
-          {/* ✅ was unconditional — last word got a trailing space before "We fixed that." */}
           {i !== WORDS.length - 1 && '\u00A0'}
         </motion.span>
       ))}
 
       <motion.span
-        className="title-accent"
+        className={styles["title-accent"]}
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.3 + WORDS.length * 0.055 + 0.15, duration: 0.7 }}
@@ -247,7 +198,6 @@ function AnimatedHeadline() {
 export default function HomePage() {
   const router   = useRouter();
   const scrollTo = useScrollTo();
-  const [checking, setChecking] = useState(true);
   const [scrollY, setScrollY]   = useState(0);
 
   useScrollEvent(useCallback(({ scroll }) => setScrollY(scroll), []));
@@ -266,7 +216,6 @@ export default function HomePage() {
       } catch {
         localStorage.clear();
       }
-      if (mounted) setChecking(false);
     })();
 
     return () => { mounted = false; };
@@ -285,13 +234,9 @@ export default function HomePage() {
 
   return (
     <AnimatePresence mode="wait">
-      {checking ? (
-        <LoadingScreen key="loader" />
-      ) : (
-        // ✅ key + initial/animate/exit were missing — page never faded in or out
         <motion.div
           key="page"
-          className="page"
+          className={styles["page"]}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -299,13 +244,13 @@ export default function HomePage() {
         >
           <GridBackground />
 
-          <div className="ticker-outer">
+          <div className={styles["ticker-outer"]}>
             <Ticker />
           </div>
 
           <section
-            className="hero"
-            style={{
+            className={styles["hero"]}
+            styles={{
               opacity: heroOpacity,
               transform: `translateY(${heroParallax}px)`,
             }}
@@ -313,7 +258,7 @@ export default function HomePage() {
             <AnimatedHeadline />
 
             <motion.p
-              className="subtitle"
+              className={styles["subtitle"]}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 1.5, duration: 0.7 }}
@@ -324,24 +269,23 @@ export default function HomePage() {
             <MagneticCTA onClick={() => scrollTo('#onboarding-section', { duration: 1.4 })} />
           </section>
 
-          <section className="features">
-            <div className="cards-grid">
+          <section className={styles["features"]}>
+            <div className={styles["cards-grid"]}>
               {FEATURES.map((f, i) => (
                 <FeatureCard key={f.no} f={f} delay={i * 0.12} />
               ))}
             </div>
           </section>
-            <section id="onboarding-section" className="onboarding">
-              <div className="divider">
-                <div className="divider-line" />
-                <span className="divider-label">Personalize your feed</span>
-                <div className="divider-line" />
+            <section id="onboarding-section" className={styles["onboarding"]}>
+              <div className={styles["divider"]}>
+                <div className={styles["divider-line"]} />
+                <span className={styles["divider-label"]}>Personalize your feed</span>
+                <div className={styles["divider-line"]} />
               </div>
 
               <OnboardingModal onComplete={handleOnboardingComplete} />
             </section>
         </motion.div>
-      )}
     </AnimatePresence>
   );
 }

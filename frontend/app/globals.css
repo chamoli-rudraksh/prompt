@@ -1,20 +1,17 @@
 @import "tailwindcss";
 
-/* ─── CRITICAL: Lenis + Smooth Scroll Fix ────────────────────────────────── */
+
 html {
   height: auto;
   min-height: 100%;
-  scroll-behavior: auto !important; /* disable native smooth scroll — Lenis owns this */
+  scroll-behavior: auto !important; 
 }
 
-/* ✅ body was split across TWO separate blocks; merged into one so nothing silently
-      overrides anything else */
+
 body {
   height: auto;
   min-height: 100%;
-  overflow-x: hidden;           /* keep x-restriction */
-  /* ✅ removed: overflow: visible from the old #__next,body rule — that shorthand
-        was resetting BOTH axes and silently killing overflow-x: hidden above */
+  overflow-x: hidden;           
   background-color: var(--bg);
   color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -24,13 +21,11 @@ body {
   font-size: 14px;
 }
 
-/* ✅ #__next only — body removed from this rule to avoid the overflow conflict.
-      overflow: visible here lets sticky children (e.g. .briefing-panel) work correctly. */
 #__next {
   overflow: visible;
 }
 
-/* ─── Design System Tokens ───────────────────────────────────────────────── */
+
 :root {
   --et-navy:        #0A2342;
   --et-navy-light:  #1a3a5c;
@@ -63,18 +58,20 @@ body {
 
 /* ─── Base ───────────────────────────────────────────────────────────────── */
 
-/* ✅ apply border-box globally so padding never inflates element dimensions */
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
 /* ─── Layout ─────────────────────────────────────────────────────────────── */
+
 .main-content {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem 1.5rem;
   position: relative;
   z-index: 1;
+  
 }
 
 /* ─── Hero Feature ───────────────────────────────────────────────────────── */
@@ -95,6 +92,7 @@ body {
 .landing-page {
   position: relative;
   overflow-x: hidden;
+  
 }
 
 /* ─── Search Inputs ──────────────────────────────────────────────────────── */
@@ -108,9 +106,7 @@ body {
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   background: var(--card-bg);
-  /* ✅ was: height: 48px without box-sizing:border-box — content-box made the
-        real rendered height 72px (48 + 12 + 12 padding). Now box-sizing:border-box
-        is global (see above), so height:48px correctly includes padding. */
+
   height: 48px;
   font-family: inherit;
 }
@@ -192,9 +188,6 @@ body {
 
 /* ─── Briefing Panel ─────────────────────────────────────────────────────── */
 
-/* ✅ position:sticky requires no overflow set on any ancestor.
-      The old rule set overflow:visible on body/root which was broken (see top).
-      With that fixed, sticky now works correctly here. */
 .briefing-panel {
   background: var(--card-bg);
   border: 1px solid var(--border);
@@ -250,8 +243,6 @@ body {
 .loading-dots span:nth-child(2),
 .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
 
-/* ✅ was missing — the 3rd dot had no delay so it never synced with the bounce
-      sequence and appeared to stutter or not animate at all */
 .loading-dots span:nth-child(3),
 .typing-indicator span:nth-child(3) { animation-delay: 0s; }
 

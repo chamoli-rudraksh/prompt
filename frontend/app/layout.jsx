@@ -1,4 +1,4 @@
-import Navbar from "@/components/Navbar";
+import Navbar from "@/components/Navbar/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import "./globals.css";
