@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import styles from "./onboarding.module.css";
 
 const personas = [
   { id: 'investor', label: 'Investor', icon: '📈', desc: 'Track markets, funds & portfolio insights' },
@@ -38,58 +39,61 @@ export default function OnboardingModal({ onComplete }) {
   };
 
   return (
-    <div className="onboarding-container">
-      <h2 className="onboarding-title">What kind of reader are you?</h2>
-      <p className="onboarding-subtitle">
+    <div className={styles["onboarding-container"]}>
+      <h2 className={styles["onboarding-title"]}>
+        What kind of reader are you?
+      </h2>
+
+      <p className={styles["onboarding-subtitle"]}>
         Personalise your ET NewsAI experience in 30 seconds
       </p>
 
-      {/* Name input */}
+      {/* Name */}
       <input
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Enter your name"
-        className="onboarding-input"
-        id="onboarding-name"
+        className={styles["onboarding-input"]}
       />
 
-      {/* Persona selection */}
-      <div className="persona-grid">
+      {/* Persona */}
+      <div className={styles["persona-grid"]}>
         {personas.map((p) => (
           <button
             key={p.id}
             onClick={() => setPersona(p.id)}
-            className={`persona-card ${
-              persona === p.id ? 'selected' : ''
+            className={`${styles["persona-card"]} ${
+              persona === p.id ? styles.selected : ''
             }`}
-            id={`persona-${p.id}`}
           >
-            <span className="persona-icon">{p.icon}</span>
-            <span className="persona-label">{p.label}</span>
-            <span className="persona-desc">{p.desc}</span>
+            <div className={styles["persona-header"]}>
+              <span className={styles["persona-icon"]}>{p.icon}</span>
+              <span className={styles["persona-label"]}>{p.label}</span>
+            </div>
+
+            <div className={styles["persona-desc"]}>
+              {p.desc}
+            </div>
           </button>
         ))}
       </div>
 
-      {/* Topic selection */}
+      {/* Interests */}
       {persona && (
         <>
-          <p
-            className="onboarding-subtitle"
-            style={{ marginTop: '1rem' }}
-          >
+          <p className={`${styles["onboarding-subtitle"]} ${styles["interest-title"]}`}>
             Select topics that interest you
           </p>
-          <div className="interests-grid">
+
+          <div className={styles["interests-grid"]}>
             {topicOptions.map((t) => (
               <button
                 key={t.id}
                 onClick={() => toggleInterest(t.id)}
-                className={`interest-chip ${
-                  interests.includes(t.id) ? 'selected' : ''
+                className={`${styles["interest-chip"]} ${
+                  interests.includes(t.id) ? styles.selected : ''
                 }`}
-                id={`interest-${t.id}`}
               >
                 {t.label}
               </button>
@@ -98,11 +102,11 @@ export default function OnboardingModal({ onComplete }) {
         </>
       )}
 
+      {/* CTA */}
       <button
         onClick={handleSubmit}
         disabled={!name.trim() || !persona || interests.length === 0}
-        className="onboarding-submit-btn"
-        id="onboarding-submit"
+        className={styles["onboarding-submit-btn"]}
       >
         Start reading →
       </button>
