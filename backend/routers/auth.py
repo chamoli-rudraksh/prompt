@@ -1,18 +1,17 @@
 import uuid, json, os
 from fastapi import APIRouter, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from database import (
-    get_user_by_email, get_user_by_google_id, get_user_by_refresh_token,
-    create_user_email, create_user_google, update_user_profile,
+    get_user_by_email, get_user_by_refresh_token,
+    create_user_email, update_user_profile,
     save_refresh_token, get_user_by_id
 )
 from auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token,
-    decode_token, get_google_auth_url, exchange_google_code
+    decode_token
 )
 
 router = APIRouter()
@@ -28,8 +27,6 @@ def user_response(user: dict) -> dict:
         "email":     user["email"],
         "persona":   user.get("persona", ""),
         "interests": json.loads(user.get("interests") or "[]"),
-        "picture":   user.get("picture", ""),
-        "auth_provider": user.get("auth_provider", "email"),
     }
 
 
@@ -98,8 +95,6 @@ async def login(request: Request, body: LoginBody, response: Response):
     user = await get_user_by_email(body.email)
     if not user:
         raise HTTPException(401, "Invalid email or password")
-    if user.get("auth_provider") == "google":
-        raise HTTPException(401, "This account uses Google sign-in")
     if not verify_password(body.password, user["password"]):
         raise HTTPException(401, "Invalid email or password")
 
@@ -168,65 +163,3 @@ async def update_profile(body: ProfileBody, request: Request):
     await update_user_profile(user_id, body.persona, body.interests)
     user = await get_user_by_id(user_id)
     return {"user": user_response(user)}
-
-
-# ── Google OAuth ──────────────────────────────────────────────
-
-@router.get("/google")
-@limiter.limit("10/minute")
-async def google_login(request: Request):
-    """Redirect user to Google's login page."""
-    url = get_google_auth_url()
-    return RedirectResponse(url)
-
-
-@router.get("/google/callback")
-async def google_callback(
-    code: str = None,
-    error: str = None,
-    response: Response = None
-):
-    """Google redirects here after user approves."""
-    if error or not code:
-        return RedirectResponse(f"{FRONTEND_URL}/auth?error=google_denied")
-
-    try:
-        google_user = await exchange_google_code(code)
-    except Exception:
-        return RedirectResponse(f"{FRONTEND_URL}/auth?error=google_failed")
-
-    google_id = google_user.get("id")
-    email     = google_user.get("email")
-    name      = google_user.get("name", "")
-    picture   = google_user.get("picture", "")
-
-    # Check if user already exists
-    user = await get_user_by_google_id(google_id)
-
-    if not user:
-        # Check if email exists with a different provider
-        existing = await get_user_by_email(email)
-        if existing:
-            return RedirectResponse(
-                f"{FRONTEND_URL}/auth?error=email_exists&email={email}"
-            )
-        # Create new Google user
-        user_id = str(uuid.uuid4())
-        await create_user_google(user_id, name, email, google_id, picture)
-        user = await get_user_by_id(user_id)
-        needs_profile = True
-    else:
-        needs_profile = not user.get("persona")
-
-    access  = create_access_token(user["id"], user["email"])
-    refresh = create_refresh_token(user["id"])
-    await save_refresh_token(user["id"], refresh)
-
-    _set_refresh_cookie(response, refresh)
-
-    redirect_url = (
-        f"{FRONTEND_URL}/auth/callback"
-        f"?access_token={access}"
-        f"&needs_profile={'true' if needs_profile else 'false'}"
-    )
-    return RedirectResponse(redirect_url)

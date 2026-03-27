@@ -32,12 +32,9 @@ async def init_db():
                 id            TEXT PRIMARY KEY,
                 name          TEXT,
                 email         TEXT UNIQUE NOT NULL,
-                password      TEXT DEFAULT '',
+                password      TEXT NOT NULL,
                 persona       TEXT DEFAULT '',
                 interests     TEXT DEFAULT '[]',
-                auth_provider TEXT DEFAULT 'email',
-                google_id     TEXT UNIQUE,
-                picture       TEXT,
                 refresh_token TEXT,
                 created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -461,14 +458,7 @@ async def get_user_by_id(user_id: str) -> dict | None:
         return dict(row) if row else None
 
 
-async def get_user_by_google_id(google_id: str) -> dict | None:
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cur = await db.execute(
-            "SELECT * FROM users WHERE google_id = ?", (google_id,)
-        )
-        row = await cur.fetchone()
-        return dict(row) if row else None
+
 
 
 async def get_user_by_refresh_token(token: str) -> dict | None:
@@ -484,19 +474,9 @@ async def get_user_by_refresh_token(token: str) -> dict | None:
 async def create_user_email(user_id, name, email, hashed_pw, persona, interests):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
-            INSERT INTO users (id, name, email, password, persona, interests, auth_provider)
-            VALUES (?, ?, ?, ?, ?, ?, 'email')
+            INSERT INTO users (id, name, email, password, persona, interests)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (user_id, name, email, hashed_pw, persona, json.dumps(interests)))
-        await db.commit()
-
-
-async def create_user_google(user_id, name, email, google_id, picture):
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("""
-            INSERT INTO users
-            (id, name, email, google_id, picture, auth_provider, password)
-            VALUES (?, ?, ?, ?, ?, 'google', '')
-        """, (user_id, name, email, google_id, picture))
         await db.commit()
 
 
