@@ -38,23 +38,16 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ── CORS ──────────────────────────────────────────────────────
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-]
-
 FRONTEND_URL = os.getenv("FRONTEND_URL", "")
-if FRONTEND_URL and FRONTEND_URL not in ALLOWED_ORIGINS:
-    ALLOWED_ORIGINS.append(FRONTEND_URL)
+ALLOWED_ORIGINS = [FRONTEND_URL] if FRONTEND_URL else []
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Accept-Language", "Content-Language"],
 )
 
 # ── Routers ───────────────────────────────────────────────────

@@ -7,7 +7,14 @@ import { getFeed } from '@/lib/api';
 import AuthGuard from '@/components/AuthGuard';
 import { apiFetch, getUser, logout } from '@/lib/auth';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const getApiUrl = () => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+};
+
+const API_URL = getApiUrl();
 
 function TrendingBar({ onTopicClick }) {
   const [topics, setTopics] = useState([]);

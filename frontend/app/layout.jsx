@@ -1,5 +1,6 @@
 
 import { ThemeProvider } from "@/components/ThemeProvider";
+import Navbar from "@/components/Navbar";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import "./globals.css";
 
@@ -20,7 +21,7 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <ThemeProvider>
-
+          <Navbar />
           <main className="main-content">{children}</main>
           <KeyboardShortcuts />
         </ThemeProvider>

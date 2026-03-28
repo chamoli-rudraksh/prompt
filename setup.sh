@@ -18,6 +18,19 @@ echo -e "${CYAN}   ET NewsAI — Environment Setup${NC}"
 echo -e "${CYAN}═══════════════════════════════════════════${NC}"
 echo ""
 
+# 0. Kill any running ET NewsAI processes to avoid conflicts
+echo -e "${YELLOW}Cleaning up any running services...${NC}"
+for port in 3000 3001 3002 8000; do
+    fuser -k $port/tcp 2>/dev/null || true
+    lsof -ti:$port | xargs kill -9 2>/dev/null || true
+done
+pkill -9 -f "next-server.*$ROOT_DIR" 2>/dev/null || true
+pkill -9 -f "next dev.*$ROOT_DIR" 2>/dev/null || true
+pkill -9 -f "uvicorn main:app" 2>/dev/null || true
+rm -f "$ROOT_DIR/frontend/.next/dev/lock"
+echo -e "${GREEN}  ✓ Cleanup done${NC}"
+echo ""
+
 # 1. Check prerequisites
 echo -e "${YELLOW}[1/4] Checking prerequisites...${NC}"
 

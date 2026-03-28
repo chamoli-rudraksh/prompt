@@ -13,9 +13,38 @@ NC='\033[0m'
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# ── Kill all stale ET NewsAI processes ────────────────────────
+kill_stale_processes() {
+    echo -e "${YELLOW}Cleaning up stale processes...${NC}"
+
+    # Kill any existing processes (Next.js, Uvicorn, Browser websockets) on these ports aggressively
+    for port in 3000 3001 3002 8000; do
+        fuser -k $port/tcp 2>/dev/null || true
+        lsof -ti:$port | xargs kill -9 2>/dev/null || true
+    done
+
+    # Kill any lingering next-server or next dev processes from this project
+    pkill -9 -f "next-server.*$ROOT_DIR" 2>/dev/null || true
+    pkill -9 -f "next dev.*$ROOT_DIR" 2>/dev/null || true
+    pkill -9 -f "uvicorn main:app" 2>/dev/null || true
+
+    # Remove Next.js dev lock file to prevent "Unable to acquire lock" errors
+    rm -f "$ROOT_DIR/frontend/.next/dev/lock"
+
+    # Brief pause to let OS release ports
+    sleep 2
+
+    echo -e "${GREEN}  ✓ Cleanup complete${NC}"
+}
+
 cleanup() {
     echo -e "\n${YELLOW}Shutting down ET NewsAI...${NC}"
     kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
+    # Also kill any child processes
+    pkill -9 -f "next-server.*$ROOT_DIR" 2>/dev/null || true
+    pkill -9 -f "next dev.*$ROOT_DIR" 2>/dev/null || true
+    pkill -9 -f "uvicorn main:app" 2>/dev/null || true
+    rm -f "$ROOT_DIR/frontend/.next/dev/lock"
     echo -e "${GREEN}All services stopped.${NC}"
 }
 trap cleanup EXIT INT TERM
@@ -23,6 +52,9 @@ trap cleanup EXIT INT TERM
 echo -e "${CYAN}═══════════════════════════════════════════${NC}"
 echo -e "${CYAN}   ET NewsAI — Starting Services${NC}"
 echo -e "${CYAN}═══════════════════════════════════════════${NC}"
+
+# 0. Kill stale processes from previous runs
+kill_stale_processes
 
 # Check if setup was run
 if [ ! -d "$ROOT_DIR/backend/venv" ] || [ ! -d "$ROOT_DIR/frontend/node_modules" ]; then
@@ -44,9 +76,6 @@ echo -e "${YELLOW}[2/3] Starting Backend...${NC}"
 cd "$ROOT_DIR/backend"
 source venv/bin/activate
 
-# Clean ports
-lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1 &
 BACKEND_PID=$!
 
@@ -54,10 +83,7 @@ BACKEND_PID=$!
 echo -e "${YELLOW}[3/3] Starting Frontend...${NC}"
 cd "$ROOT_DIR/frontend"
 
-# Clean ports
-lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-
-npm run dev &
+npm run dev -- -p 3000 &
 FRONTEND_PID=$!
 
 echo ""

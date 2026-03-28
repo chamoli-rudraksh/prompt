@@ -5,6 +5,15 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { getUser, logout, apiFetch } from '@/lib/auth';
 
+const getApiUrl = () => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+};
+
+const API_URL = getApiUrl();
+
 export default function Navbar() {
   const pathname = usePathname();
   const [user, setUser] = useState(null);
@@ -64,8 +73,7 @@ export default function Navbar() {
 
   const handleRefreshFeed = async () => {
     try {
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const API_URL = getApiUrl();
       await apiFetch(`${API_URL}/admin/refresh-news`, { method: 'POST' });
       window.dispatchEvent(new CustomEvent('refresh-feed'));
     } catch (err) {
