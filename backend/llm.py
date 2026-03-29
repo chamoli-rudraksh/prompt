@@ -29,14 +29,15 @@ def get_llm():
     return _llm
 
 
+from langchain_huggingface import HuggingFaceEmbeddings
+
 # ── Embeddings (reused across all calls) ─────────────────────────
 _embeddings = None
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        _embeddings = OllamaEmbeddings(
-            model="nomic-embed-text",
-            base_url=OLLAMA_BASE_URL,
+        _embeddings = HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2"
         )
     return _embeddings
 

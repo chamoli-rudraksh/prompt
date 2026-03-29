@@ -1,10 +1,10 @@
 """
-Embeddings module — OllamaEmbeddings via LangChain.
-Uses nomic-embed-text model via Ollama.
+Embeddings module — HuggingFaceEmbeddings via LangChain.
+Uses all-MiniLM-L6-v2 which has 384 output dimensions (matches existing DB).
 Reused across ingestion.py and anywhere embeddings are needed.
 """
 
-from langchain_ollama import OllamaEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 import os
 
 _embeddings = None
@@ -13,9 +13,8 @@ _embeddings = None
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        _embeddings = OllamaEmbeddings(
-            model="nomic-embed-text",
-            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+        _embeddings = HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2"
         )
     return _embeddings
 
