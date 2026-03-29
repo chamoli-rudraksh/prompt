@@ -24,7 +24,7 @@ async def story_agent(state: AgentState) -> AgentState:
 
     try:
         embedding = get_embedding(query)
-        n = 20
+        n = 12
 
         # Retry loop — fetch more articles if timeline is too short
         for attempt in range(2):
@@ -50,7 +50,7 @@ async def story_agent(state: AgentState) -> AgentState:
             context = "\n\n".join([
                 f"[{a['source']} | {a['published_at']}]\n"
                 f"Title: {a['title']}\n"
-                f"Content: {a['summary'][:500]}"
+                f"Content: {a['summary'][:300]}"
                 for a in articles
             ])
 
@@ -89,7 +89,7 @@ JSON:"""
                 # Retry if timeline too short
                 if len(parsed.get("timeline", [])) < 3 and attempt == 0:
                     state["errors"].append("Timeline has fewer than 3 events, fetching more articles")
-                    n = 40
+                    n = 20
                     continue
                 if not missing:
                     state["story_arc"] = parsed

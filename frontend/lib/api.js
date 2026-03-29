@@ -50,8 +50,28 @@ export async function getFeed(userId, limit = 20) {
   return res.data;
 }
 
-export async function saveArticle(data) {
+export async function saveArticleLegacy(data) {
   await api.post('/saved-articles', data);
+}
+
+export async function saveArticle(articleId) {
+  const res = await api.post('/articles/save', { article_id: articleId });
+  return res.data;
+}
+
+export async function unsaveArticle(articleId) {
+  const res = await api.delete(`/articles/save/${articleId}`);
+  return res.data;
+}
+
+export async function getSavedArticles() {
+  const res = await api.get('/articles/saves');
+  return res.data;
+}
+
+export async function getAgentLogs(limit = 100) {
+  const res = await api.get('/admin/logs', { params: { limit } });
+  return res.data;
 }
 
 // ─── Navigator ──────────────────────────────────────────────────────────────

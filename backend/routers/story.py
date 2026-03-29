@@ -66,7 +66,7 @@ async def get_story_arc(
     """
     try:
         # 1. Search long-term collection for relevant articles
-        articles = await search_story_articles(req.story_query, n=25)
+        articles = await search_story_articles(req.story_query, n=12)
 
         if not articles:
             return StoryArcResponse(

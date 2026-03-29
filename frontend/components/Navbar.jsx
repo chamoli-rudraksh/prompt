@@ -88,6 +88,7 @@ export default function Navbar() {
     { href: '/story', label: 'Story Arc' },
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/saved', label: 'Saved' },
+    { href: '/agent', label: '⚙ Agents' },
   ];
 
   return (

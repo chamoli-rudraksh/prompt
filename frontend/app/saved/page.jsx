@@ -5,7 +5,7 @@ import AuthGuard from "@/components/AuthGuard";
 import ArticleCard from "@/components/ArticleCard";
 import { apiFetch } from "@/lib/auth";
 
-// ─── Backend (untouched) ──────────────────────────────────────────────────────
+// ── Backend ───────────────────────────────────────────────────────
 
 const getApiUrl = () => {
   if (typeof window !== 'undefined') {
@@ -16,7 +16,7 @@ const getApiUrl = () => {
 
 const API = getApiUrl();
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
+// ── Design tokens ────────────────────────────────────────────────
 
 const C = {
   bg:         '#07070a',
@@ -35,26 +35,36 @@ const mono  = "'JetBrains Mono','Fira Code',monospace";
 const serif = "'Playfair Display',Georgia,serif";
 const sans  = "'DM Sans',system-ui,sans-serif";
 
-// ─── Saved Articles ───────────────────────────────────────────────────────────
+// ── Saved Articles ────────────────────────────────────────────────
 
 function SavedArticles() {
   const [articles, setArticles] = useState([]);
   const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
 
   useEffect(() => {
     async function load() {
       try {
         const res = await apiFetch(`${API}/articles/saves`);
-        const d   = await res.json();
-        setArticles(d.articles || []);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const d = await res.json();
+        // Mark all articles as saved so ArticleCard shows the ★
+        const savedArticles = (d.articles || []).map(a => ({ ...a, is_saved: true }));
+        setArticles(savedArticles);
       } catch (e) {
         console.error(e);
+        setError('Failed to load saved articles. Please try again.');
       } finally {
         setLoading(false);
       }
     }
     load();
   }, []);
+
+  const handleUnsave = (articleId) => {
+    // Remove the article from the list optimistically
+    setArticles(prev => prev.filter(a => a.id !== articleId));
+  };
 
   return (
     <div style={S.page}>
@@ -67,10 +77,27 @@ function SavedArticles() {
           <p style={S.pageDesc}>
             Your personally bookmarked stories, always within reach.
           </p>
+          {articles.length > 0 && (
+            <span style={S.countBadge}>{articles.length} saved</span>
+          )}
         </div>
       </div>
 
       <div style={S.content}>
+
+        {/* ── ERROR ── */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              style={S.errorBanner}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              ⚠ {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── LOADING ── */}
         <AnimatePresence>
@@ -96,7 +123,7 @@ function SavedArticles() {
         </AnimatePresence>
 
         {/* ── EMPTY STATE ── */}
-        {!loading && articles.length === 0 && (
+        {!loading && articles.length === 0 && !error && (
           <motion.div
             style={S.emptyState}
             initial={{ opacity: 0, scale: 0.96 }}
@@ -106,7 +133,7 @@ function SavedArticles() {
             <div style={S.emptyIcon}>🔖</div>
             <h2 style={S.emptyTitle}>Nothing saved yet</h2>
             <p style={S.emptyDesc}>
-              Bookmark articles from your feed — they'll appear here for quick access.
+              Bookmark articles from your feed — they&#39;ll appear here for quick access.
             </p>
           </motion.div>
         )}
@@ -119,17 +146,24 @@ function SavedArticles() {
             animate="visible"
             variants={{ visible: { transition: { staggerChildren: 0.07 } } }}
           >
-            {articles.map((article, i) => (
-              <motion.div
-                key={article.id}
-                variants={{
-                  hidden: { opacity: 0, y: 20 },
-                  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
-                }}
-              >
-                <ArticleCard article={article} />
-              </motion.div>
-            ))}
+            <AnimatePresence>
+              {articles.map((article) => (
+                <motion.div
+                  key={article.id}
+                  layout
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
+                  }}
+                  exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.3 } }}
+                >
+                  <ArticleCard
+                    article={article}
+                    onUnsave={handleUnsave}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </motion.div>
         )}
       </div>
@@ -137,7 +171,7 @@ function SavedArticles() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ── Styles ─────────────────────────────────────────────────────────
 
 const S = {
   page: { minHeight: '100vh', background: C.bg, color: C.text, fontFamily: sans },
@@ -164,8 +198,23 @@ const S = {
     fontFamily: sans, fontSize: '0.92rem', lineHeight: 1.7,
     color: C.textSec, margin: 0,
   },
+  countBadge: {
+    display: 'inline-block', marginTop: '0.6rem',
+    fontFamily: mono, fontSize: '0.58rem',
+    textTransform: 'uppercase', letterSpacing: '0.1em',
+    color: C.accent, background: C.accentDim,
+    padding: '0.2rem 0.65rem', borderRadius: 99,
+    border: `1px solid rgba(245,200,66,0.2)`,
+  },
 
   content: { maxWidth: 1100, margin: '2.5rem auto', padding: '0 2rem' },
+
+  errorBanner: {
+    background: 'rgba(239,68,68,0.1)', color: '#fca5a5',
+    borderRadius: 8, padding: '0.75rem 1rem',
+    fontFamily: mono, fontSize: '0.68rem', letterSpacing: '0.05em',
+    marginBottom: '1.5rem',
+  },
 
   loadingWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '5rem 0' },
   dotsRow: { display: 'flex', gap: '0.5rem' },
@@ -196,7 +245,7 @@ const S = {
   },
 };
 
-// ─── Export ───────────────────────────────────────────────────────────────────
+// ── Export ─────────────────────────────────────────────────────────
 
 export default function SavedPage() {
   return <AuthGuard><SavedArticles /></AuthGuard>;

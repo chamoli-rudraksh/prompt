@@ -18,6 +18,7 @@ from routers.auth import router as auth_router
 from routers.market import router as market_router
 from routers.trending import router as trending_router
 from routers.saves import router as saves_router
+from routers.vernacular import router as vernacular_router
 
 
 @asynccontextmanager
@@ -59,6 +60,7 @@ app.include_router(story.router,      tags=["story"])
 app.include_router(market_router,     prefix="/market",   tags=["market"])
 app.include_router(trending_router,   prefix="/trending", tags=["trending"])
 app.include_router(saves_router,      prefix="/articles", tags=["saves"])
+app.include_router(vernacular_router, prefix="/story",    tags=["vernacular"])
 
 @app.get("/health")
 async def health():

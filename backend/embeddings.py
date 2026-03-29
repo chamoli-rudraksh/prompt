@@ -1,11 +1,10 @@
 """
-Embeddings module — OllamaEmbeddings via LangChain.
-Uses nomic-embed-text model via Ollama.
+Embeddings module — HuggingFace sentence-transformers (local, fast, free).
+Uses all-MiniLM-L6-v2 — no external API needed.
 Reused across ingestion.py and anywhere embeddings are needed.
 """
 
-from langchain_ollama import OllamaEmbeddings
-import os
+from langchain_huggingface import HuggingFaceEmbeddings
 
 _embeddings = None
 
@@ -13,9 +12,10 @@ _embeddings = None
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        _embeddings = OllamaEmbeddings(
-            model="nomic-embed-text",
-            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+        _embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
         )
     return _embeddings
 

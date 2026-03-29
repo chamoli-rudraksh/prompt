@@ -741,6 +741,7 @@ body {
   margin-bottom: 8px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -754,6 +755,7 @@ body {
   flex-grow: 1;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1440,3 +1442,147 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* ─── Persona Badges ──────────────────────────────────────────────── */
+.persona-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.persona-student {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.persona-pro {
+  background: rgba(14, 165, 233, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.2);
+}
+
+.persona-founder {
+  background: rgba(168, 85, 247, 0.1);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.persona-trader {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ─── Persona-Themed Article Cards ────────────────────────────────── */
+
+/* Student / Beginner — Educational, warm, large text feel */
+.article-card.card-student {
+  border-left: 3px solid #818cf8;
+}
+.article-card.card-student .article-summary {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.article-card.card-student .why-it-matters {
+  background: rgba(99, 102, 241, 0.06);
+  border-left-color: #818cf8;
+}
+.article-card.card-student .why-label {
+  color: #818cf8;
+}
+.article-card.card-student .why-text {
+  color: #c7d2fe;
+}
+.article-card.card-student .topic-tag {
+  background: rgba(99, 102, 241, 0.1);
+  color: #a5b4fc;
+}
+
+/* CFO / Professional — Dense, compact, data-heavy */
+.article-card.card-professional {
+  border-left: 3px solid #38bdf8;
+  padding: 14px;
+}
+.article-card.card-professional .article-title {
+  font-size: 13px;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+.article-card.card-professional .article-summary {
+  font-size: 12px;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.4;
+}
+.article-card.card-professional .why-it-matters {
+  background: rgba(14, 165, 233, 0.06);
+  border-left-color: #38bdf8;
+  padding: 6px 10px;
+}
+.article-card.card-professional .why-label {
+  color: #38bdf8;
+  font-size: 9px;
+}
+.article-card.card-professional .why-text {
+  font-size: 11px;
+  color: #7dd3fc;
+}
+.article-card.card-professional .topic-tag {
+  background: rgba(14, 165, 233, 0.08);
+  color: #7dd3fc;
+  font-size: 10px;
+  padding: 2px 7px;
+}
+
+/* Founder / Startup — Sleek, vibrant, opportunity-focused */
+.article-card.card-founder {
+  border-left: 3px solid #c084fc;
+  background: linear-gradient(135deg, var(--card-bg) 0%, rgba(168, 85, 247, 0.02) 100%);
+}
+.article-card.card-founder .why-it-matters {
+  background: rgba(168, 85, 247, 0.06);
+  border-left-color: #c084fc;
+}
+.article-card.card-founder .why-label {
+  color: #c084fc;
+}
+.article-card.card-founder .why-text {
+  color: #d8b4fe;
+}
+.article-card.card-founder .topic-tag {
+  background: rgba(168, 85, 247, 0.08);
+  color: #d8b4fe;
+}
+
+/* Trader — High contrast, red/green, market-heavy */
+.article-card.card-trader {
+  border-left: 3px solid #f87171;
+}
+.article-card.card-trader .article-title {
+  font-weight: 600;
+}
+.article-card.card-trader .why-it-matters {
+  background: rgba(239, 68, 68, 0.06);
+  border-left-color: #f87171;
+}
+.article-card.card-trader .why-label {
+  color: #f87171;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+.article-card.card-trader .why-text {
+  color: #fca5a5;
+  font-weight: 500;
+}
+.article-card.card-trader .topic-tag {
+  background: rgba(239, 68, 68, 0.08);
+  color: #fca5a5;
+  font-size: 10px;
+}
+

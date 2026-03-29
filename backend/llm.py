@@ -1,6 +1,12 @@
-from langchain_ollama import OllamaLLM
-from langchain_ollama import OllamaEmbeddings
+"""
+LLM module — Ollama (local, free, no API keys needed).
+Embeddings via HuggingFace sentence-transformers (local, fast, free).
+"""
+
+from langchain_ollama import ChatOllama
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import HumanMessage
 from langchain_classic.chains import RetrievalQA, LLMChain
 from langchain_classic.memory import ConversationBufferWindowMemory
 from langchain_chroma import Chroma
@@ -9,18 +15,17 @@ from langchain_core.output_parsers import JsonOutputParser
 from typing import List, AsyncGenerator
 import os
 import json
-import httpx
 
+LLM_MODEL      = os.getenv("LLM_MODEL", "llama3.1:8b")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-LLM_MODEL       = os.getenv("LLM_MODEL", "llama3.1:8b")
-CHROMA_PATH     = os.getenv("CHROMA_PATH", "./chroma_store")
+CHROMA_PATH    = os.getenv("CHROMA_PATH", "./chroma_store")
 
-# ── Singleton LLM (reused across all calls) ──────────────────────
+# ── Singleton LLM (Ollama — local, no API key) ───────────────────
 _llm = None
 def get_llm():
     global _llm
     if _llm is None:
-        _llm = OllamaLLM(
+        _llm = ChatOllama(
             model=LLM_MODEL,
             base_url=OLLAMA_BASE_URL,
             temperature=0.2,
@@ -29,14 +34,15 @@ def get_llm():
     return _llm
 
 
-# ── Embeddings (reused across all calls) ─────────────────────────
+# ── Embeddings (local HuggingFace — fast and free) ───────────────
 _embeddings = None
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        _embeddings = OllamaEmbeddings(
-            model="nomic-embed-text",
-            base_url=OLLAMA_BASE_URL,
+        _embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
         )
     return _embeddings
 
@@ -67,27 +73,15 @@ def clear_memory(conversation_id: str):
 # ── Simple LLM call (summary, topics, why-it-matters) ────────────
 async def ask_llm(prompt: str) -> str:
     llm = get_llm()
-    return await llm.ainvoke(prompt)
+    result = await llm.ainvoke([HumanMessage(content=prompt)])
+    return result.content
 
 # ── Streaming LLM call (for chat) ────────────────────────────────
 async def ask_llm_stream(prompt: str) -> AsyncGenerator[str, None]:
-    async with httpx.AsyncClient(timeout=300) as client:
-        async with client.stream(
-            "POST",
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json={
-                "model": LLM_MODEL,
-                "prompt": prompt,
-                "stream": True,
-            }
-        ) as response:
-            async for line in response.aiter_lines():
-                if line.strip():
-                    chunk = json.loads(line)
-                    if chunk.get("response"):
-                        yield chunk["response"]
-                    if chunk.get("done"):
-                        break
+    llm = get_llm()
+    async for chunk in llm.astream([HumanMessage(content=prompt)]):
+        if chunk.content:
+            yield chunk.content
 
 # ── RAG chain for navigator briefing ─────────────────────────────
 BRIEFING_TEMPLATE = PromptTemplate(
@@ -227,15 +221,16 @@ async def get_story_arc(story_query: str, articles: list) -> dict:
     context = "\n\n".join([
         f"[{a.get('source','')} | {a.get('published_at','')}]\n"
         f"Title: {a.get('title','')}\n"
-        f"Content: {(a.get('content') or a.get('summary',''))[:600]}"
+        f"Content: {(a.get('content') or a.get('summary',''))[:300]}"
         for a in articles
     ])
 
     chain = STORY_TEMPLATE | llm
-    raw = await chain.ainvoke({
+    raw_result = await chain.ainvoke({
         "context": context,
         "story_query": story_query,
     })
+    raw = raw_result.content if hasattr(raw_result, 'content') else str(raw_result)
 
     try:
         return parser.parse(raw)

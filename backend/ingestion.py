@@ -9,7 +9,6 @@ from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
 from database import save_article, article_exists, mark_embedded
 from embeddings import get_embedding
-from llm import ask_llm
 
 # Disable ChromaDB telemetry before import to avoid posthog version conflict
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
@@ -24,9 +23,6 @@ COLLECTION = CHROMA.get_or_create_collection("articles")
 LONG_COLLECTION = CHROMA.get_or_create_collection("articles_longterm")
 
 CUTOFF_HOURS = 24
-
-# Global semaphore to limit concurrent LLM calls (Ollama handles 1 at a time)
-_llm_semaphore = asyncio.Semaphore(1)
 
 # Semaphore to limit concurrent embedding calls to 3
 EMBED_SEMAPHORE = asyncio.Semaphore(3)
@@ -100,41 +96,79 @@ async def fetch_full_text(url: str) -> str:
         return ""
 
 
-async def generate_summary(content: str, title: str) -> str:
+def generate_summary(content: str, title: str) -> str:
+    """Fast local summary — no LLM needed for ingestion.
+    Uses the first ~2 sentences of the content or falls back to title."""
     if not content:
         return title
-    prompt = (
-        f"Summarize this news article in exactly 2 sentences. "
-        f"Be factual, specific, and concise. No opinions.\n\n"
-        f"Title: {title}\n\n"
-        f"Article: {content[:1500]}"
-    )
-    try:
-        async with _llm_semaphore:
-            return await ask_llm(prompt)
-    except Exception:
-        return title
+    # Strip HTML remnants
+    from bs4 import BeautifulSoup
+    text = BeautifulSoup(content, "html.parser").get_text(separator=" ", strip=True)
+    text = " ".join(text.split())  # normalize whitespace
+    # Extract first 2-3 sentences
+    sentences = []
+    for sep in ["। ", ". ", "! ", "? "]:
+        if sep in text:
+            parts = text.split(sep)
+            sentences = [parts[0] + sep.strip()]
+            if len(parts) > 1:
+                sentences.append(parts[1].split(sep[0])[0] + sep.strip() if sep[0] in parts[1] else parts[1])
+            break
+    if sentences:
+        summary = " ".join(sentences).strip()
+        return summary[:400] if len(summary) > 400 else summary
+    # Fallback: first 300 chars
+    return text[:300] if len(text) > 300 else text
 
 
-async def extract_topics(title: str, content: str) -> list:
-    prompt = (
-        f"Return a JSON array of 3-5 topic tags for this news article. "
-        f"You MUST only use tags from this exact list: "
-        f"{json.dumps(ALLOWED_TOPICS)}. "
-        f"Return ONLY the JSON array with no explanation, no markdown, "
-        f"no backticks. Example: [\"markets\", \"rbi\", \"banking\"]\n\n"
-        f"Title: {title}\n"
-        f"Content: {content[:400]}"
-    )
-    try:
-        async with _llm_semaphore:
-            raw = await ask_llm(prompt)
-        raw = raw.strip().strip("`").replace("json", "").strip()
-        topics = json.loads(raw)
-        valid = [t for t in topics if t in ALLOWED_TOPICS]
-        return valid if valid else ["economy"]
-    except Exception:
+# Keyword sets for fast topic extraction (no LLM needed)
+TOPIC_KEYWORDS = {
+    "markets": ["stock", "share", "sensex", "nifty", "bse", "nse", "rally", "bull", "bear", "equity",
+                "index", "trading", "investor", "portfolio", "dividend", "ipo", "listing", "market"],
+    "startups": ["startup", "founder", "funding", "venture", "unicorn", "seed", "series a", "series b",
+                 "incubator", "accelerator", "entrepreneur"],
+    "policy": ["policy", "regulation", "government", "ministry", "parliament", "bill", "law", "sebi",
+               "compliance", "mandate", "notification", "gazette", "amendment"],
+    "technology": ["tech", "software", "ai", "artificial intelligence", "machine learning", "data",
+                   "cloud", "cyber", "digital", "saas", "app", "platform", "algorithm"],
+    "economy": ["economy", "gdp", "growth", "fiscal", "trade", "export", "import", "deficit",
+                "surplus", "employment", "unemployment", "wage"],
+    "banking": ["bank", "banking", "loan", "credit", "deposit", "npa", "nbfc", "fintech",
+                "payment", "upi", "lending", "mortgage"],
+    "energy": ["energy", "oil", "gas", "solar", "wind", "renewable", "power", "electricity",
+               "coal", "petroleum", "opec", "fuel", "ev", "electric vehicle"],
+    "geopolitics": ["geopolitics", "china", "us ", "usa", "russia", "pakistan", "trade war",
+                    "tariff", "sanction", "nato", "diplomacy", "bilateral", "summit"],
+    "corporate": ["corporate", "company", "merger", "acquisition", "revenue", "profit", "loss",
+                  "quarterly", "annual", "earnings", "board", "ceo", "management", "restructure"],
+    "agriculture": ["agriculture", "farm", "crop", "msp", "kisan", "harvest", "monsoon",
+                    "irrigation", "fertilizer", "agri"],
+    "inflation": ["inflation", "cpi", "wpi", "price rise", "deflation", "cost of living",
+                  "consumer price"],
+    "rbi": ["rbi", "reserve bank", "repo rate", "monetary policy", "interest rate", "liquidity",
+            "forex reserve", "rupee"],
+    "budget": ["budget", "finance minister", "fiscal deficit", "tax", "gst", "income tax",
+               "customs duty", "allocation"],
+    "ipo": ["ipo", "initial public offering", "listing", "allotment", "grey market", "gmp",
+            "public issue", "book building"],
+    "mutual funds": ["mutual fund", "sip", "nav", "amc", "fund manager", "thematic fund",
+                     "index fund", "etf"],
+}
+
+
+def extract_topics_fast(title: str, content: str) -> list:
+    """Fast keyword-based topic extraction — no LLM needed for ingestion."""
+    text = f"{title} {content}".lower()
+    scores = {}
+    for topic, keywords in TOPIC_KEYWORDS.items():
+        score = sum(1 for kw in keywords if kw in text)
+        if score > 0:
+            scores[topic] = score
+    if not scores:
         return ["economy"]
+    # Return top 3-5 topics sorted by match count
+    sorted_topics = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    return [t[0] for t in sorted_topics[:min(5, max(3, len(sorted_topics)))]]
 
 
 async def embed_and_store(article: dict):
@@ -194,9 +228,9 @@ async def process_article(entry: dict, source_name: str):
         content = entry.get("summary", "") or entry.get("description", "")
     content = content.strip()
 
-    # Run sequentially to avoid overwhelming Ollama
-    summary = await generate_summary(content, title)
-    topics = await extract_topics(title, content)
+    # Fast local processing — no LLM calls needed
+    summary = generate_summary(content, title)
+    topics = extract_topics_fast(title, content)
 
     published_at = published_str or datetime.now(timezone.utc).isoformat()
 
@@ -235,42 +269,41 @@ async def ingest_all_feeds():
 
 
 async def search_articles(query: str, n: int = 10) -> list:
-    from llm import get_embeddings
-    from langchain_chroma import Chroma
+    """Semantic search using the COLLECTION singleton (same client that ingestion writes to)."""
+    query_embedding = get_embedding(query)
 
-    vectorstore = Chroma(
-        collection_name="articles",
-        embedding_function=get_embeddings(),
-        persist_directory=os.getenv("CHROMA_PATH", "./chroma_store"),
+    results = COLLECTION.query(
+        query_embeddings=[query_embedding],
+        n_results=min(n * 2, COLLECTION.count() or 1),
+        include=["documents", "metadatas", "distances"],
     )
 
-    # MMR search with relevance score threshold
-    results = vectorstore.similarity_search_with_relevance_scores(
-        query, k=n * 2  # fetch double, then filter
-    )
-
-    # Only keep articles with relevance score above 0.35
-    filtered = [
-        (doc, score) for doc, score in results if score >= 0.35
-    ]
-
-    # Sort by score descending, take top n
-    filtered.sort(key=lambda x: x[1], reverse=True)
-    filtered = filtered[:n]
+    if not results or not results.get("ids") or not results["ids"][0]:
+        return []
 
     articles = []
-    for doc, score in filtered:
-        meta = doc.metadata
+    for i, doc_id in enumerate(results["ids"][0]):
+        distance = results["distances"][0][i]
+        # ChromaDB returns L2 distances; convert to similarity score (0-1 range)
+        # For normalized embeddings, distance is in [0, 2], similarity = 1 - distance/2
+        similarity = 1.0 - (distance / 2.0)
+
+        if similarity < 0.35:
+            continue
+
+        meta = results["metadatas"][0][i]
         articles.append({
-            "id": meta.get("id", ""),
+            "id": meta.get("id", doc_id),
             "title": meta.get("title", ""),
             "summary": meta.get("summary", ""),
             "url": meta.get("url", ""),
             "source": meta.get("source", ""),
             "published_at": meta.get("published_at", ""),
             "topics": json.loads(meta.get("topics", "[]")),
-            "content": doc.page_content,
-            "relevance_score": round(score, 3),
+            "content": results["documents"][0][i] if results["documents"] else "",
+            "relevance_score": round(similarity, 3),
         })
 
-    return articles
+    # Sort by relevance descending, take top n
+    articles.sort(key=lambda x: x["relevance_score"], reverse=True)
+    return articles[:n]

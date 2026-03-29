@@ -20,25 +20,32 @@ function readingTime(text) {
   return `${mins} min read`;
 }
 
-export default function ArticleCard({ article, userId }) {
+export default function ArticleCard({ article, userId, persona, onUnsave }) {
   const [saved, setSaved] = useState(article.is_saved || false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const toggleSave = async () => {
     setSaving(true);
+    setSaveError('');
     try {
       const url = `${API}/articles/save`;
       if (saved) {
         await apiFetch(`${url}/${article.id}`, { method: 'DELETE' });
+        setSaved(false);
+        // If we're on the saved page, notify parent to remove card
+        if (onUnsave) onUnsave(article.id);
       } else {
         await apiFetch(url, {
           method: 'POST',
           body: JSON.stringify({ article_id: article.id }),
         });
+        setSaved(true);
       }
-      setSaved(!saved);
     } catch (error) {
       console.error('Failed to save article:', error);
+      setSaveError('Save failed');
+      setTimeout(() => setSaveError(''), 2000);
     } finally {
       setSaving(false);
     }
@@ -60,8 +67,38 @@ export default function ArticleCard({ article, userId }) {
     }
   };
 
+  // Persona-specific badge rendering
+  const renderPersonaBadge = () => {
+    if (!persona) return null;
+    const p = persona.toLowerCase();
+    if (p.includes('student') || p.includes('beginner')) {
+      return <span className="persona-badge persona-student" title="Simplified for learners">📚 Explainer</span>;
+    }
+    if (p.includes('cfo') || p.includes('professional')) {
+      return <span className="persona-badge persona-pro">📊 Analysis</span>;
+    }
+    if (p.includes('founder') || p.includes('startup')) {
+      return <span className="persona-badge persona-founder">🚀 Startup Intel</span>;
+    }
+    if (p.includes('trader') || p.includes('trading')) {
+      return <span className="persona-badge persona-trader">📈 Market Signal</span>;
+    }
+    return null;
+  };
+
+  // Get persona-specific CSS class for the card
+  const getPersonaClass = () => {
+    if (!persona) return '';
+    const p = persona.toLowerCase();
+    if (p.includes('student') || p.includes('beginner')) return 'card-student';
+    if (p.includes('cfo') || p.includes('professional')) return 'card-professional';
+    if (p.includes('founder') || p.includes('startup')) return 'card-founder';
+    if (p.includes('trader') || p.includes('trading')) return 'card-trader';
+    return '';
+  };
+
   return (
-    <div className="article-card">
+    <div className={`article-card ${getPersonaClass()}`}>
       <div className="article-card-header">
         <div className="article-source">
           <span className="source-name">{article.source}</span>
@@ -71,23 +108,37 @@ export default function ArticleCard({ article, userId }) {
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
             {readingTime(article.content || article.summary)}
           </span>
+          {renderPersonaBadge()}
         </div>
         <button
           onClick={toggleSave}
           disabled={saving}
           className={`save-btn ${saved ? 'saved' : ''}`}
-          title={saved ? 'Unsave' : 'Save article'}
+          title={saving ? 'Saving...' : saved ? 'Unsave' : 'Save article'}
           style={{
             background: 'none',
             border: 'none',
-            cursor: 'pointer',
+            cursor: saving ? 'wait' : 'pointer',
             fontSize: 16,
             color: saved ? 'var(--et-coral)' : 'var(--text-muted)',
+            opacity: saving ? 0.5 : 1,
+            transition: 'all 0.2s ease',
+            transform: saving ? 'scale(0.85)' : 'scale(1)',
           }}
         >
-          {saved ? '★' : '☆'}
+          {saving ? '⏳' : saved ? '★' : '☆'}
         </button>
       </div>
+
+      {/* Save error toast */}
+      {saveError && (
+        <div style={{
+          fontSize: 11, color: '#ff6b6b', padding: '4px 8px',
+          background: 'rgba(255,107,107,0.1)', borderRadius: 4, marginBottom: 8,
+        }}>
+          {saveError}
+        </div>
+      )}
 
       <a
         href={article.url}
@@ -102,7 +153,7 @@ export default function ArticleCard({ article, userId }) {
 
       {article.summary && (
         <div style={{ marginBottom: 12 }}>
-          <AudioButton text={article.summary} />
+          <AudioButton text={article.summary} articleId={article.id} />
         </div>
       )}
 

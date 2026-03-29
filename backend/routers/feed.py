@@ -30,11 +30,45 @@ async def generate_why_it_matters(article: dict, persona: str, interests: list[s
     if cached:
         return cached
 
+    # Build persona-specific framing instructions
+    persona_lower = persona.lower() if persona else ""
+    if "student" in persona_lower or "beginner" in persona_lower:
+        framing = (
+            f"The reader is a {persona}. Use simple language, avoid jargon. "
+            f"Explain concepts like you're teaching. Start with 'Here's what this means:' "
+            f"or 'Simply put,'. Add a brief definition if there's a financial term."
+        )
+    elif "cfo" in persona_lower or "professional" in persona_lower:
+        framing = (
+            f"The reader is a {persona}. Use precise financial language. "
+            f"Focus on P&L impact, risk exposure, and regulatory implications. "
+            f"Be dense and data-driven. Start with 'Impact analysis:' or 'Key exposure:'."
+        )
+    elif "founder" in persona_lower or "startup" in persona_lower:
+        framing = (
+            f"The reader is a {persona}. Frame through the lens of startup opportunity, "
+            f"funding climate, M&A signals, and tech trends. "
+            f"Start with 'Opportunity signal:' or 'Startup impact:'."
+        )
+    elif "trader" in persona_lower or "trading" in persona_lower:
+        framing = (
+            f"The reader is a {persona}. Focus on price action, market sentiment, "
+            f"sector rotation, and trading setups. Use market terminology. "
+            f"Start with 'Market signal:' or 'Trade insight:'."
+        )
+    else:
+        framing = (
+            f"The reader is a {persona}. Tailor the explanation to their specific "
+            f"professional context and interests. Be specific and actionable."
+        )
+
     # Generate blurb
     interest_str = ", ".join(interests[:3]) if interests else "current affairs"
     prompt = (
-        f"In 1-2 short sentences, explain why this news matters to a {persona} "
-        f"interested in {interest_str}. Be specific and actionable.\n\n"
+        f"{framing}\n\n"
+        f"Their areas of interest: {interest_str}.\n\n"
+        f"In 1-2 short sentences, explain why this news matters to them personally. "
+        f"Be specific, actionable, and directly relevant.\n\n"
         f"Title: {article.get('title', '')}\n"
         f"Summary: {article.get('summary', '')[:300]}"
     )

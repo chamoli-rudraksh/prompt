@@ -259,7 +259,7 @@ const S = {
   searchForm: {
     display: 'flex', alignItems: 'center', gap: 0,
     background: C.surface,
-    border: `1px solid ${C.border}`,
+    borderWidth: 1, borderStyle: 'solid', borderColor: C.border,
     borderRadius: 12, overflow: 'hidden',
     transition: 'border-color 0.2s, box-shadow 0.2s',
   },
