@@ -12,10 +12,10 @@ CACHE_TTL = 300
 
 
 async def _fetch_crypto():
-    """Bitcoin + Ethereum + Gold (PAX Gold) from CoinGecko — free, no key."""
+    """Bitcoin + Ethereum from CoinGecko — free, no key."""
     url = (
         "https://api.coingecko.com/api/v3/simple/price"
-        "?ids=bitcoin,ethereum,paxos-gold"
+        "?ids=bitcoin,ethereum"
         "&vs_currencies=usd"
         "&include_24hr_change=true"
     )
@@ -28,7 +28,6 @@ async def _fetch_crypto():
         mapping = [
             ("bitcoin",     "Bitcoin",   "BTC"),
             ("ethereum",    "Ethereum",  "ETH"),
-            ("paxos-gold",  "Gold",      "Gold (PAXG)"),
         ]
         for cg_id, name, short in mapping:
             info = data.get(cg_id, {})
@@ -48,6 +47,37 @@ async def _fetch_crypto():
     except Exception as e:
         print(f"[MARKET] CoinGecko error: {e}")
         return []
+
+
+async def _fetch_metals():
+    """Real Gold, Silver, and Platinum from gold-api.com — free, no key."""
+    results = []
+    metals = [
+        ("XAU", "Gold", "Gold (Oz)"),
+        ("XAG", "Silver", "Silver (Oz)"),
+        ("XPT", "Platinum", "Platinum (Oz)"),
+    ]
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            for symbol, name, short in metals:
+                r = await client.get(f"https://api.gold-api.com/price/{symbol}")
+                if r.status_code == 200:
+                    data = r.json()
+                    price = data.get("price", 0)
+                    if price:
+                        results.append({
+                            "symbol":      symbol,
+                            "name":        name,
+                            "short":       short,
+                            "current":     round(price, 2),
+                            "change":      0,
+                            "change_pct":  0,
+                            "commentary":  f"Spot {name.lower()} price: ${round(price, 2)}/oz.",
+                            "is_positive": True,
+                        })
+    except Exception as e:
+        print(f"[MARKET] Gold-API error: {e}")
+    return results
 
 
 async def _fetch_usd_inr():
@@ -87,10 +117,12 @@ async def get_market_data(current_user: dict = Depends(get_current_user)):
     # Fetch in parallel
     crypto = await _fetch_crypto()
     usd_inr = await _fetch_usd_inr()
+    metals = await _fetch_metals()
 
     if usd_inr:
         results.append(usd_inr)
     results.extend(crypto)
+    results.extend(metals)
 
     if not results:
         results = [
