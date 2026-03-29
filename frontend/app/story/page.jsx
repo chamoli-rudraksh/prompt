@@ -311,9 +311,16 @@ const S = {
 
   searchWrap: { maxWidth: 960, margin: '2rem auto 0', padding: '0 2rem' },
   searchForm: {
-    display: 'flex', alignItems: 'center',
-    background: C.surface, border: `1px solid ${C.border}`,
-    borderRadius: 12, overflow: 'hidden',
+    display: 'flex',
+    alignItems: 'center',
+    background: C.surface,
+
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: C.border,
+
+    borderRadius: 12,
+    overflow: 'hidden',
     transition: 'border-color 0.2s, box-shadow 0.2s',
   },
   searchFormFocused: {

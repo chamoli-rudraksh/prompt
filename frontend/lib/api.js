@@ -90,11 +90,16 @@ export async function sendChatMessage(conversationId, message, stream = true) {
 // ─── Story Arc ──────────────────────────────────────────────────────────────
 
 export async function getStoryArc(storyQuery, userId) {
-  const res = await api.post('/story-arc', {
-    story_query: storyQuery,
-    user_id: userId,
-  });
-  return res.data;
+  try {
+    const res = await api.post('/story-arc', {
+      story_query: storyQuery,
+      user_id: userId,
+    });
+    return res.data;
+  } catch (err) {
+    console.error('API ERROR:', err.response?.data || err.message);
+    throw err;
+  }
 }
 
 // ─── Health ─────────────────────────────────────────────────────────────────
