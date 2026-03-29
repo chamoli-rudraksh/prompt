@@ -48,7 +48,7 @@ async def relevance_agent(state: AgentState) -> AgentState:
         distances = results["distances"][0]
 
         for i, (aid, meta, dist) in enumerate(zip(ids, metas, distances)):
-            score = 1 - dist  # convert distance to similarity
+            score = 1.0 - (dist / 2.0)  # L2 distance for normalized embeddings: [0,2] -> similarity [0,1]
             if score >= THRESHOLD:
                 articles.append({
                     "id": aid,
@@ -67,7 +67,7 @@ async def relevance_agent(state: AgentState) -> AgentState:
             state["errors"].append(f"Only {len(articles)} results found, widening query")
             # Broaden: take top 5 regardless of threshold
             for aid, meta, dist in zip(ids[:5], metas[:5], distances[:5]):
-                score = 1 - dist
+                score = 1.0 - (dist / 2.0)
                 if not any(a["id"] == aid for a in articles):
                     articles.append({
                         "id": aid,

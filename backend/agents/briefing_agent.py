@@ -1,5 +1,6 @@
 # backend/agents/briefing_agent.py
 
+import asyncio
 import time
 import json
 from agents.state import AgentState
@@ -14,6 +15,8 @@ REQUIRED_ANGLES = [
     "expert_commentary",
     "what_to_watch",
 ]
+
+LLM_TIMEOUT_SECONDS = 30  # Max time to wait for LLM response
 
 
 def format_articles(articles: list) -> str:
@@ -32,6 +35,64 @@ def validate_briefing_json(data: dict) -> list:
     """Validate that all required angle keys exist in the briefing JSON."""
     missing = [k for k in REQUIRED_ANGLES if k not in data]
     return missing
+
+
+def build_fast_briefing(query: str, articles: list) -> str:
+    """Build a structured briefing directly from article data — no LLM needed.
+    This ensures instant results even when the LLM is slow or unavailable."""
+
+    sources = list({a.get("source", "Unknown") for a in articles})
+
+    # Group summaries for the executive summary
+    summaries = [a.get("summary", a.get("title", "")) for a in articles if a.get("summary")]
+    exec_summary = " ".join(summaries[:3]) if summaries else f"Analysis of {len(articles)} articles on {query}."
+
+    # Build content for each angle from article data
+    all_content = []
+    for a in articles:
+        content = a.get("content") or a.get("summary", "")
+        if content:
+            all_content.append(f"• {a.get('title', '')}: {content[:200]}")
+
+    content_block = "\n\n".join(all_content[:5]) if all_content else "See referenced articles for details."
+
+    # Build key points list
+    key_points = []
+    for a in articles[:5]:
+        title = a.get("title", "")
+        if title:
+            key_points.append(f"• {title}")
+    key_points_str = "\n".join(key_points) if key_points else "No specific developments to highlight."
+
+    briefing = {
+        "summary": exec_summary[:500],
+        "macro_impact": {
+            "title": "Macro Impact",
+            "content": content_block,
+            "sources": sources[:3],
+        },
+        "sector_winners_losers": {
+            "title": "Sector Winners & Losers",
+            "content": "\n\n".join(all_content[2:5]) if len(all_content) > 2 else content_block,
+            "sources": sources[:3],
+        },
+        "market_reaction": {
+            "title": "Market Reaction",
+            "content": "\n\n".join(all_content[3:6]) if len(all_content) > 3 else content_block,
+            "sources": sources[:3],
+        },
+        "expert_commentary": {
+            "title": "Expert Commentary",
+            "content": "\n\n".join(all_content[5:8]) if len(all_content) > 5 else "Expert views from: " + ", ".join(sources[:3]),
+            "sources": sources[:3],
+        },
+        "what_to_watch": {
+            "title": "What to Watch",
+            "content": key_points_str,
+            "sources": sources[:3],
+        },
+    }
+    return json.dumps(briefing)
 
 
 async def briefing_agent(state: AgentState) -> AgentState:
@@ -59,8 +120,11 @@ async def briefing_agent(state: AgentState) -> AgentState:
         )
         return state
 
-    context = format_articles(articles)
+    # ── Step 1: Build fast deterministic briefing (instant) ──
+    fast_briefing = build_fast_briefing(query, articles)
 
+    # ── Step 2: Try LLM enhancement with timeout ──
+    context = format_articles(articles)
     prompt = f"""You are an expert Indian business journalist writing for Economic Times.
 Using ONLY the articles provided, create a comprehensive multi-angle briefing on: {query}
 
@@ -70,27 +134,27 @@ You MUST return a valid JSON object with EXACTLY this structure (no markdown, no
   "summary": "A 2-3 sentence executive summary of the topic",
   "macro_impact": {{
     "title": "Macro Impact",
-    "content": "2-3 paragraphs analyzing the macroeconomic impact — GDP, inflation, fiscal deficit, global positioning",
+    "content": "2-3 paragraphs analyzing the macroeconomic impact",
     "sources": ["Source Name 1", "Source Name 2"]
   }},
   "sector_winners_losers": {{
     "title": "Sector Winners & Losers",
-    "content": "2-3 paragraphs identifying which sectors/industries benefit and which lose. Be specific with company names where applicable.",
+    "content": "2-3 paragraphs identifying which sectors benefit and which lose",
     "sources": ["Source Name 1"]
   }},
   "market_reaction": {{
     "title": "Market Reaction",
-    "content": "2-3 paragraphs on how markets (equity, bonds, forex, commodities) have reacted or are likely to react",
+    "content": "2-3 paragraphs on market reactions",
     "sources": ["Source Name 1"]
   }},
   "expert_commentary": {{
     "title": "Expert Commentary",
-    "content": "Quotes or paraphrased views from economists, analysts, or industry leaders mentioned in the articles",
+    "content": "Views from economists and analysts mentioned in articles",
     "sources": ["Source Name 1"]
   }},
   "what_to_watch": {{
     "title": "What to Watch",
-    "content": "3-5 specific forward-looking points investors and business leaders should monitor",
+    "content": "3-5 forward-looking points to monitor",
     "sources": ["Source Name 1"]
   }}
 }}
@@ -101,74 +165,40 @@ Articles:
 Return ONLY the JSON object:"""
 
     briefing = None
-    for attempt in range(2):
-        try:
-            result = await ask_llm(prompt)
-            # Clean up markdown wrapping if any
-            result = result.strip().strip("`").replace("```json", "").replace("```", "").strip()
+    try:
+        result = await asyncio.wait_for(ask_llm(prompt), timeout=LLM_TIMEOUT_SECONDS)
+        result = result.strip().strip("`").replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(result)
+        missing = validate_briefing_json(parsed)
+        if not missing:
+            briefing = json.dumps(parsed)
+        else:
+            state["errors"].append(f"LLM briefing missing angles: {missing}, using fast briefing")
+    except asyncio.TimeoutError:
+        state["errors"].append(f"LLM timed out after {LLM_TIMEOUT_SECONDS}s, using fast briefing")
+    except json.JSONDecodeError as je:
+        state["errors"].append(f"LLM returned invalid JSON: {str(je)}, using fast briefing")
+    except Exception as e:
+        state["errors"].append(f"LLM error: {str(e)}, using fast briefing")
 
-            parsed = json.loads(result)
-            missing = validate_briefing_json(parsed)
-
-            if not missing:
-                briefing = json.dumps(parsed)
-                break
-            else:
-                state["errors"].append(
-                    f"Briefing JSON missing angles: {missing}, retrying (attempt {attempt+1})"
-                )
-                prompt = prompt + (
-                    f"\n\nIMPORTANT: Your previous response was missing these keys: "
-                    f"{missing}. You MUST include ALL 5 angle sections."
-                )
-        except json.JSONDecodeError as je:
-            state["errors"].append(f"{agent_name} JSON parse error attempt {attempt+1}: {str(je)}")
-            # On retry, make the instruction even stricter
-            prompt = prompt + "\n\nCRITICAL: Return ONLY valid JSON. No text, no markdown."
-        except Exception as e:
-            state["errors"].append(f"{agent_name} attempt {attempt+1}: {str(e)}")
-
-    # If JSON parsing failed entirely, build a fallback structured response
-    if briefing is None:
-        try:
-            # Try one more time with a simpler structure
-            fallback_result = await ask_llm(
-                f"Summarize the key points about '{query}' from these articles in 3-4 sentences:\n{context[:2000]}"
-            )
-            briefing = json.dumps({
-                "summary": fallback_result,
-                "macro_impact": {"title": "Macro Impact", "content": fallback_result, "sources": []},
-                "sector_winners_losers": {"title": "Sector Winners & Losers", "content": "Analysis in progress.", "sources": []},
-                "market_reaction": {"title": "Market Reaction", "content": "Analysis in progress.", "sources": []},
-                "expert_commentary": {"title": "Expert Commentary", "content": "Analysis in progress.", "sources": []},
-                "what_to_watch": {"title": "What to Watch", "content": "Check back for updates.", "sources": []},
-            })
-        except Exception:
-            briefing = json.dumps({
-                "summary": f"Briefing generation failed for: {query}",
-                "macro_impact": {"title": "Macro Impact", "content": "Generation failed.", "sources": []},
-                "sector_winners_losers": {"title": "Sector Winners & Losers", "content": "Generation failed.", "sources": []},
-                "market_reaction": {"title": "Market Reaction", "content": "Generation failed.", "sources": []},
-                "expert_commentary": {"title": "Expert Commentary", "content": "Generation failed.", "sources": []},
-                "what_to_watch": {"title": "What to Watch", "content": "Generation failed.", "sources": []},
-            })
-
-    state["briefing"] = briefing
+    # Use LLM result if available, otherwise use fast briefing
+    state["briefing"] = briefing if briefing else fast_briefing
 
     duration_ms = int((time.time() - start) * 1000)
+    mode = "llm" if briefing else "fast"
     await log_agent_action(
         agent_name=agent_name,
         task=state["task"],
-        status="success" if briefing else "partial",
-        input_data={"query": query, "article_count": len(articles)},
-        output_data={"briefing_length": len(state["briefing"]), "retries": state["retry_count"]},
+        status="success",
+        input_data={"query": query, "article_count": len(articles), "mode": mode},
+        output_data={"briefing_length": len(state["briefing"]), "mode": mode},
         duration_ms=duration_ms,
     )
 
     state["logs"].append({
         "agent": agent_name,
-        "status": "success" if briefing else "partial",
-        "message": f"Generated structured briefing ({len(state['briefing'])} chars) for: {query}",
+        "status": "success",
+        "message": f"Generated {mode} briefing ({len(state['briefing'])} chars) for: {query}",
     })
 
     return state

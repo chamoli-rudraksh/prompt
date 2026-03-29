@@ -114,9 +114,9 @@ function NavigatorInner() {
       const activeUser = getUser();
       const userId = activeUser?.id || 'anonymous';
       const data = await createBriefing(searchQuery, userId);
-      setBriefingText(data.briefing_text);
-      setSources(data.sources);
-      setConversationId(data.conversation_id);
+      setBriefingText(data.briefing || data.briefing_text || '');
+      setSources(data.sources || []);
+      setConversationId(data.conversation_id || '');
     } catch (err) {
       console.error('Briefing error:', err);
       setError('Failed to generate briefing. Please check backend connection.');
