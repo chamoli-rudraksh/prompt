@@ -228,11 +228,18 @@ async def ingest_feed(feed_url: str):
         print(f"[ERROR] Feed failed {feed_url}: {e}")
 
 
+from utils.cache import clear_cache   # ✅ add this import at top
+
+
 async def ingest_all_feeds():
     print(f"[INGESTION] Starting at {datetime.now(timezone.utc).isoformat()}")
-    await asyncio.gather(*[ingest_feed(url) for url in RSS_FEEDS])
-    print(f"[INGESTION] Complete at {datetime.now(timezone.utc).isoformat()}")
 
+    await asyncio.gather(*[ingest_feed(url) for url in RSS_FEEDS])
+
+    # clear trending cache after new data is ingested
+    clear_cache("trending")
+
+    print(f"[INGESTION] Complete at {datetime.now(timezone.utc).isoformat()}")
 
 async def search_articles(query: str, n: int = 10) -> list:
     from llm import get_embeddings
