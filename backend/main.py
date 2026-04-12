@@ -8,6 +8,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from middleware.logging_middleware import LoggingMiddleware
+from middleware.error_handler import global_exception_handler
 
 load_dotenv()
 
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="ET NewsAI API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(LoggingMiddleware)
+app.add_exception_handler(Exception, global_exception_handler)
 
 # ── Rate limiter ──────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
